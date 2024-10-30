@@ -1,4 +1,4 @@
-CCXT – CryptoCurrency eXchange Trading Library
+FORKED CCXT – CryptoCurrency eXchange Trading Library
 ==============================================
 
 `Build Status <https://travis-ci.org/ccxt/ccxt>`__ `npm <https://npmjs.com/package/ccxt>`__ `PyPI <https://pypi.python.org/pypi/ccxt>`__ `NPM Downloads <https://www.npmjs.com/package/ccxt>`__ `Discord <https://discord.gg/dhzSKYU>`__ `Supported Exchanges <https://github.com/ccxt/ccxt/wiki/Exchange-Markets>`__ `Open Collective <https://opencollective.com/ccxt>`__
