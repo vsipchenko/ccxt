@@ -134,15 +134,19 @@ export default class gains extends Exchange {
                 'secret': true,
             },
             'api': {
+                'public': {
+                    'get': [
+                        'ohlcv',
+                        'ticker',
+                        'trades',
+                    ],
+                },
                 'private': {  // private methods, but public also possible 'public': {....}
                     'get': [
                         'orders',
                         'order',
                         'balance',
-                        'ohlcv',
-                        'ticker',
                         'leverage_tiers',
-                        'trades',
                     ],
                     'post': [
                         'order',
@@ -430,7 +434,7 @@ export default class gains extends Exchange {
         if (since !== undefined) {
             request['since'] = since;
         }
-        const response = await this.privateGetOhlcv (this.extend (request, params));
+        const response = await this.publicGetOhlcv (this.extend (request, params));
         return this.parseOHLCVs (response, market, timeframe, since, limit);
     }
 
@@ -473,7 +477,7 @@ export default class gains extends Exchange {
          */
         await this.loadMarkets ();
         const market = this.market (symbol);
-        const response = await this.privateGetTicker (params);
+        const response = await this.publicGetTicker (params);
         const marketId = market['id'] as string;
         const ticker = this.safeDict (response, marketId, {}) as Dict;
         return this.parseTicker (ticker, market);
@@ -572,7 +576,7 @@ export default class gains extends Exchange {
         if (limit !== undefined) {
             request['limit'] = limit; // max 100
         }
-        const response = await this.privateGetTrades (this.extend (request, params));
+        const response = await this.publicGetTrades (this.extend (request, params));
         return this.parseTrades (response, market, since, limit);
     }
 }

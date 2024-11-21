@@ -9,14 +9,14 @@ import { implicitReturnType } from '../base/types.js';
 import { Exchange as _Exchange } from '../base/Exchange.js';
 
 interface Exchange {
+    publicGetOhlcv (params?: {}): Promise<implicitReturnType>;
+    publicGetTicker (params?: {}): Promise<implicitReturnType>;
+    publicGetTrades (params?: {}): Promise<implicitReturnType>;
     privateGetOrders (params?: {}): Promise<implicitReturnType>;
     privateGetOrder (params?: {}): Promise<implicitReturnType>;
     privatePostOrder (params?: {}): Promise<implicitReturnType>;
     privateDeleteOrder (params?: {}): Promise<implicitReturnType>;
     privateGetBalance (params?: {}): Promise<implicitReturnType>;
-    privateGetOhlcv (params?: {}): Promise<implicitReturnType>;
-    privateGetTicker (params?: {}): Promise<implicitReturnType>;
-    privateGetTrades (params?: {}): Promise<implicitReturnType>;
     privateGetLeverageTiers (params?: {}): Promise<implicitReturnType>;
     privatePostLeverage (params?: {}): Promise<implicitReturnType>;
 }
