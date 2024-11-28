@@ -17,7 +17,7 @@ export default class gains extends Exchange {
         return this.deepExtend (super.describe (), {
             'id': 'gains',
             'name': 'gains',
-            'countries': [ 'TW' ], // Taiwan
+            'countries': [ 'EU' ],
             'version': 'v1',
             'rateLimit': 100,
             'pro': false,
@@ -51,6 +51,7 @@ export default class gains extends Exchange {
                 'fetchIndexOHLCV': false,
                 'fetchIsolatedBorrowRate': false,
                 'fetchIsolatedBorrowRates': false,
+                'fetchLeverageTiers': true,
                 'fetchMarginMode': false,
                 'fetchMarkets': false,
                 'fetchMarkOHLCV': false,
@@ -105,8 +106,8 @@ export default class gains extends Exchange {
             'urls': {
                 'logo': 'https://some-logo.jpg',  // TODO: update this
                 'api': {
-                    'public': 'http://127.0.0.1:8000/public', // TODO: update this
-                    'private': 'http://127.0.0.1:8000/',  // TODO: update this
+                    'public': 'http://127.0.0.1:8000', // TODO: update this
+                    'private': 'http://127.0.0.1:8000',  // TODO: update this
                 },
                 'www': 'https://gains.com/',  // TODO: update this
                 'doc': [
@@ -121,12 +122,13 @@ export default class gains extends Exchange {
             'api': {
                 'public': {
                     'get': [
+                        'markets',
                         'ohlcv',
                         'ticker',
                         'trades',
                     ],
                 },
-                'private': {  // private methods, but public also possible 'public': {....}
+                'private': {
                     'get': [
                         'orders',
                         'order',
@@ -175,6 +177,73 @@ export default class gains extends Exchange {
             'commonCurrencies': {
             },
         });
+    }
+
+    async fetchMarkets (params = {}): Promise<Market[]> {
+        /**
+         * @method
+         * @name gains#fetchMarkets
+         * @description retrieves data on all markets for ace
+         * @see TODO add a link to the relevant part of the exchange API documentation
+         * @param {object} [params] extra parameters specific to the exchange API endpoint
+         * @returns {object[]} an array of objects representing market data
+         */
+        const response = await this.publicGetMarkets ();
+        return this.parseMarkets (response);
+    }
+
+    parseMarket (market: Dict): Market {
+        // TODO: update this method with real implementation
+        return {
+            'id': this.safeString (market, 'symbol'),
+            'uppercaseId': undefined,
+            'symbol': 'BTC/USDT',
+            'base': 'BTC',
+            'baseId': '122',
+            'quote': 'USDT',
+            'quoteId': '1',
+            'settle': undefined,
+            'settleId': undefined,
+            'type': 'spot',
+            'spot': true,
+            'margin': false,
+            'swap': false,
+            'future': false,
+            'option': false,
+            'contract': false,
+            'linear': undefined,
+            'inverse': undefined,
+            'contractSize': undefined,
+            'expiry': undefined,
+            'expiryDatetime': undefined,
+            'strike': undefined,
+            'optionType': undefined,
+            'limits': {
+                'amount': {
+                    'min': 0.1,
+                    'max': 480286,
+                },
+                'price': {
+                    'min': undefined,
+                    'max': undefined,
+                },
+                'cost': {
+                    'min': undefined,
+                    'max': undefined,
+                },
+                'leverage': {
+                    'min': undefined,
+                    'max': undefined,
+                },
+            },
+            'precision': {
+                'price': 100,
+                'amount': 1,
+            },
+            'active': undefined,
+            'created': undefined,
+            'info': market,
+        };
     }
 
     parseOrder (order: Dict, market: Market = undefined): Order {
@@ -259,7 +328,6 @@ export default class gains extends Exchange {
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
          */
-
         if (symbol === undefined) {
             throw new ArgumentsRequired (this.id + ' fetchOrders() requires a symbol argument');
         }
