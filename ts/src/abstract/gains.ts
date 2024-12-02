@@ -15,11 +15,11 @@ interface Exchange {
     publicGetTrades (params?: {}): Promise<implicitReturnType>;
     privateGetOrders (params?: {}): Promise<implicitReturnType>;
     privateGetOrder (params?: {}): Promise<implicitReturnType>;
-    privatePostOrder (params?: {}): Promise<implicitReturnType>;
-    privateDeleteOrder (params?: {}): Promise<implicitReturnType>;
     privateGetBalance (params?: {}): Promise<implicitReturnType>;
     privateGetLeverageTiers (params?: {}): Promise<implicitReturnType>;
+    privatePostOrder (params?: {}): Promise<implicitReturnType>;
     privatePostLeverage (params?: {}): Promise<implicitReturnType>;
+    privateDeleteOrder (params?: {}): Promise<implicitReturnType>;
 }
 abstract class Exchange extends _Exchange {}
 

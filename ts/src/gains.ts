@@ -2,8 +2,8 @@
 //  ---------------------------------------------------------------------------
 
 import Exchange from './abstract/gains.js';
-import { ArgumentsRequired, InsufficientFunds, InvalidOrder, AuthenticationError, BadRequest } from './base/errors.js';
-import type { Balances, Dict, Int, LeverageTiers, Market, Num, OHLCV, Order, OrderSide, OrderType, Str, Strings, Ticker, Trade } from './base/types.js';
+import { ArgumentsRequired, InsufficientFunds, InvalidOrder, AuthenticationError, BadRequest, ExchangeError } from './base/errors.js';
+import type { Balances, Dict, int, Int, LeverageTiers, Market, Num, OHLCV, Order, OrderSide, OrderType, Str, Strings, Ticker, Trade } from './base/types.js';
 import { TICK_SIZE } from './base/functions/number.js';
 
 //  ---------------------------------------------------------------------------
@@ -188,14 +188,14 @@ export default class gains extends Exchange {
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @returns {object[]} an array of objects representing market data
          */
-        const response = await this.publicGetMarkets ();
+        const response = await this.publicGetMarkets (params);
         return this.parseMarkets (response);
     }
 
     parseMarket (market: Dict): Market {
         // TODO: update this method with real implementation
         return {
-            'id': this.safeString (market, 'symbol'),
+            'id': 'BTC/USDT',
             'uppercaseId': undefined,
             'symbol': 'BTC/USDT',
             'base': 'BTC',
@@ -267,8 +267,8 @@ export default class gains extends Exchange {
             'filled': this.safeFloat (order, 'filled', undefined),
             'remaining': this.safeFloat (order, 'remaining', undefined),
             'status': this.safeString (order, 'status', undefined),
-            'fee': this.safeValue (order, 'fee', {}),
-            'trades': this.safeValue (order, 'trades', []),
+            'fee': this.safeDict (order, 'fee', {}),
+            'trades': this.safeList (order, 'trades', []),
             'info': order,
         }, market);
     }
@@ -402,10 +402,10 @@ export default class gains extends Exchange {
             'info': balance,
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
-            'free': this.safeValue (balance, 'free', {}),
-            'used': this.safeValue (balance, 'used', {}),
-            'total': this.safeValue (balance, 'total', {}),
-            'debt': this.safeValue (balance, 'debt', {}),
+            'free': this.safeDict (balance, 'free', {}),
+            'used': this.safeDict (balance, 'used', {}),
+            'total': this.safeDict (balance, 'total', {}),
+            'debt': this.safeDict (balance, 'debt', {}),
         });
     }
 
@@ -554,7 +554,7 @@ export default class gains extends Exchange {
             'price': this.safeString (trade, 'price'),
             'amount': this.safeString (trade, 'amount'),
             'cost': this.safeString (trade, 'cost'),
-            'fee': this.safeValue (trade, 'fee', []),
+            'fee': this.safeList (trade, 'fee', []),
         }, market);
     }
 
@@ -583,5 +583,51 @@ export default class gains extends Exchange {
         }
         const response = await this.publicGetTrades (this.extend (request, params));
         return this.parseTrades (response, market, since, limit);
+    }
+
+    sign (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
+        let endpoint = '/' + this.implodeParams (path, params);
+        let url = this.implodeHostname (this.urls['api'][api[0]]);
+        headers = (headers !== undefined) ? headers : {};
+        if (api[1] === 'private') {
+            this.checkRequiredCredentials ();
+            headers['TEST_API_KEY_HEADER'] = this.apiKey;
+            headers['TEST_SECRET_KEY_HEADER'] = this.secret;
+        }
+        const query = this.omit (params, this.extractParams (path));
+        if (Object.keys (query).length) {
+            if ((method === 'GET') || (method === 'DELETE')) {
+                endpoint += '?' + this.urlencode (query);
+            } else {
+                body = this.json (query);
+                headers['Content-Type'] = 'application/json';
+            }
+        }
+        url = url + endpoint;
+        return { 'url': url, 'method': method, 'body': body, 'headers': headers };
+    }
+
+    handleErrors (httpCode: int, reason: string, url: string, method: string, headers: Dict, body: string, response, requestHeaders, requestBody) {
+        if (response === undefined) {
+            return undefined; // fallback to default error handler
+        }
+        //
+        //    {
+        //        "code": 80014,
+        //        "msg": "Invalid parameters, err:Key: 'GetTickerRequest.Symbol' Error:Field validation for "Symbol" failed on the "len=0|endswith=-USDT" tag",
+        //        "data": {
+        //        }
+        //    }
+        //
+        const code = this.safeString (response, 'code');
+        const message = this.safeString (response, 'msg');
+        if (code !== undefined && code !== '0') {
+            const feedback = this.id + ' ' + body;
+            this.throwExactlyMatchedException (this.exceptions['exact'], message, feedback);
+            this.throwExactlyMatchedException (this.exceptions['exact'], code, feedback);
+            this.throwBroadlyMatchedException (this.exceptions['broad'], message, feedback);
+            throw new ExchangeError (feedback); // unknown message
+        }
+        return undefined;
     }
 }
