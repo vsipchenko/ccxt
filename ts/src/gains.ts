@@ -3,24 +3,7 @@
 
 import Exchange from './abstract/gains.js';
 import { ArgumentsRequired, InsufficientFunds, InvalidOrder, AuthenticationError, BadRequest, ExchangeError } from './base/errors.js';
-import type {
-    Balances,
-    Dict,
-    int,
-    Int,
-    LeverageTier,
-    LeverageTiers,
-    Market,
-    Num,
-    OHLCV,
-    Order,
-    OrderSide,
-    OrderType,
-    Str,
-    Strings,
-    Ticker,
-    Trade
-} from './base/types.js';
+import type { Balances, Dict, int, Int, LeverageTier, LeverageTiers, Market, Num, OHLCV, Order, OrderSide, OrderType, Str, Strings, Ticker, Trade } from './base/types.js';
 import { TICK_SIZE } from './base/functions/number.js';
 
 //  ---------------------------------------------------------------------------
@@ -212,13 +195,13 @@ export default class gains extends Exchange {
     parseMarket (market: Dict): Market {
         // TODO: update this method with real implementation
         return {
-            'id': 'BTC/USDT',
+            'id': this.safeString (market, 'id'),
             'uppercaseId': undefined,
-            'symbol': 'BTC/USDT',
-            'base': 'BTC',
-            'baseId': '122',
-            'quote': 'USDT',
-            'quoteId': '1',
+            'symbol': this.safeString (market, 'symbol'),
+            'base': this.safeString (market, 'base'),
+            'baseId': this.safeString (market, 'baseId'),
+            'quote': this.safeString (market, 'quote'),
+            'quoteId': this.safeString (market, 'quoteId'),
             'settle': undefined,
             'settleId': undefined,
             'type': 'spot',
@@ -227,7 +210,7 @@ export default class gains extends Exchange {
             'swap': false,
             'future': false,
             'option': false,
-            'contract': false,
+            'contract': this.safeBool (market, 'contract', false),
             'linear': undefined,
             'inverse': undefined,
             'contractSize': undefined,
@@ -516,45 +499,31 @@ export default class gains extends Exchange {
         return this.parseTicker (response, market);
     }
 
-    // parseMarketLeverageTiers (info, market: Market = undefined): LeverageTier[] {
-    //     /**
-    //      * @param {object} info Exchange response for 1 market
-    //      * @param {object} market CCXT market
-    //      */
-    //     //
-    //     //    {
-    //     //        "symbol": "SUSHIUSDT",
-    //     //        "brackets": [
-    //     //            {
-    //     //                "bracket": 1,
-    //     //                "initialLeverage": 50,
-    //     //                "notionalCap": 50000,
-    //     //                "notionalFloor": 0,
-    //     //                "maintMarginRatio": 0.01,
-    //     //                "cum": 0.0
-    //     //            },
-    //     //            ...
-    //     //        ]
-    //     //    }
-    //     //
-    //     const marketId = this.safeString (info, 'symbol');
-    //     market = this.safeMarket (marketId, market, undefined, 'contract');
-    //     const brackets = this.safeList (info, 'brackets', []);
-    //     const tiers = [];
-    //     for (let j = 0; j < brackets.length; j++) {
-    //         const bracket = brackets[j];
-    //         tiers.push ({
-    //             'tier': this.safeNumber (bracket, 'bracket'),
-    //             'currency': market['quote'],
-    //             'minNotional': this.safeNumber2 (bracket, 'notionalFloor', 'qtyFloor'),
-    //             'maxNotional': this.safeNumber2 (bracket, 'notionalCap', 'qtyCap'),
-    //             'maintenanceMarginRate': this.safeNumber (bracket, 'maintMarginRatio'),
-    //             'maxLeverage': this.safeNumber (bracket, 'initialLeverage'),
-    //             'info': bracket,
-    //         });
-    //     }
-    //     return tiers;
-    // }
+    parseMarketLeverageTiers (info, market: Market = undefined): LeverageTier[] {
+        /**
+         * @param {object} info Exchange response for 1 market
+         * @param {object} market CCXT market
+         */
+
+        const marketId = this.safeString (info, 'symbol');
+        market = this.safeMarket (marketId, market, undefined, 'contract');
+        const leverageTiers = this.safeList (info, marketId, []);
+        const results = [];
+        for (let j = 0; j < leverageTiers.length; j++) {
+            const leverageTier = leverageTiers[j];
+            results.push ({
+                'tier': this.safeNumber (leverageTier, 'tier'),
+                'symbol': marketId,
+                'currency': market['quote'],
+                'minNotional': this.safeNumber (leverageTier, 'minNotional'),
+                'maxNotional': this.safeNumber (leverageTier, 'maxNotional'),
+                'maintenanceMarginRate': this.safeNumber (leverageTier, 'maintenanceMarginRate'),
+                'maxLeverage': this.safeNumber (leverageTier, 'maxLeverage'),
+                'info': leverageTier,
+            });
+        }
+        return results;
+    }
 
     async fetchLeverageTiers (symbols: Strings = undefined, params = {}): Promise<LeverageTiers> {
         /**
