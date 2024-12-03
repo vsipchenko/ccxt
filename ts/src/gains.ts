@@ -3,7 +3,24 @@
 
 import Exchange from './abstract/gains.js';
 import { ArgumentsRequired, InsufficientFunds, InvalidOrder, AuthenticationError, BadRequest, ExchangeError } from './base/errors.js';
-import type { Balances, Dict, int, Int, LeverageTiers, Market, Num, OHLCV, Order, OrderSide, OrderType, Str, Strings, Ticker, Trade } from './base/types.js';
+import type {
+    Balances,
+    Dict,
+    int,
+    Int,
+    LeverageTier,
+    LeverageTiers,
+    Market,
+    Num,
+    OHLCV,
+    Order,
+    OrderSide,
+    OrderType,
+    Str,
+    Strings,
+    Ticker,
+    Trade
+} from './base/types.js';
 import { TICK_SIZE } from './base/functions/number.js';
 
 //  ---------------------------------------------------------------------------
@@ -389,7 +406,7 @@ export default class gains extends Exchange {
         await this.loadMarkets ();
         const market = this.market (symbol);
         const request: Dict = {
-            'orderNo': id,
+            'id': id,
             'pair': market['id'],
         };
         const response = await this.privateDeleteOrder (this.extend (request, params));
@@ -499,6 +516,46 @@ export default class gains extends Exchange {
         return this.parseTicker (response, market);
     }
 
+    // parseMarketLeverageTiers (info, market: Market = undefined): LeverageTier[] {
+    //     /**
+    //      * @param {object} info Exchange response for 1 market
+    //      * @param {object} market CCXT market
+    //      */
+    //     //
+    //     //    {
+    //     //        "symbol": "SUSHIUSDT",
+    //     //        "brackets": [
+    //     //            {
+    //     //                "bracket": 1,
+    //     //                "initialLeverage": 50,
+    //     //                "notionalCap": 50000,
+    //     //                "notionalFloor": 0,
+    //     //                "maintMarginRatio": 0.01,
+    //     //                "cum": 0.0
+    //     //            },
+    //     //            ...
+    //     //        ]
+    //     //    }
+    //     //
+    //     const marketId = this.safeString (info, 'symbol');
+    //     market = this.safeMarket (marketId, market, undefined, 'contract');
+    //     const brackets = this.safeList (info, 'brackets', []);
+    //     const tiers = [];
+    //     for (let j = 0; j < brackets.length; j++) {
+    //         const bracket = brackets[j];
+    //         tiers.push ({
+    //             'tier': this.safeNumber (bracket, 'bracket'),
+    //             'currency': market['quote'],
+    //             'minNotional': this.safeNumber2 (bracket, 'notionalFloor', 'qtyFloor'),
+    //             'maxNotional': this.safeNumber2 (bracket, 'notionalCap', 'qtyCap'),
+    //             'maintenanceMarginRate': this.safeNumber (bracket, 'maintMarginRatio'),
+    //             'maxLeverage': this.safeNumber (bracket, 'initialLeverage'),
+    //             'info': bracket,
+    //         });
+    //     }
+    //     return tiers;
+    // }
+
     async fetchLeverageTiers (symbols: Strings = undefined, params = {}): Promise<LeverageTiers> {
         /**
          * @method
@@ -542,11 +599,10 @@ export default class gains extends Exchange {
         const timestamp = this.safeInteger (trade, 'timestamp');
         market = this.safeMarket (undefined, market);
         return this.safeTrade ({
-            'info': trade,
+            'id': this.safeString (trade, 'id'),
+            'symbol': market['symbol'],
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
-            'symbol': market['symbol'],
-            'id': this.safeString (trade, 'id'),
             'order': this.safeString (trade, 'order'),
             'type': this.safeString (trade, 'type'),
             'takerOrMaker': this.safeString (trade, 'takerOrMaker'),
@@ -554,7 +610,8 @@ export default class gains extends Exchange {
             'price': this.safeString (trade, 'price'),
             'amount': this.safeString (trade, 'amount'),
             'cost': this.safeString (trade, 'cost'),
-            'fee': this.safeList (trade, 'fee', []),
+            'fee': this.safeDict (trade, 'fee', {}),
+            'fees': this.safeList (trade, 'fees', []),
         }, market);
     }
 
@@ -587,9 +644,9 @@ export default class gains extends Exchange {
 
     sign (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
         let endpoint = '/' + this.implodeParams (path, params);
-        let url = this.implodeHostname (this.urls['api'][api[0]]);
+        let url = this.implodeHostname (this.urls['api'][api]);
         headers = (headers !== undefined) ? headers : {};
-        if (api[1] === 'private') {
+        if (api === 'private') {
             this.checkRequiredCredentials ();
             headers['TEST_API_KEY_HEADER'] = this.apiKey;
             headers['TEST_SECRET_KEY_HEADER'] = this.secret;
