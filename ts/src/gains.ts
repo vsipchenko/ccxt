@@ -504,17 +504,13 @@ export default class gains extends Exchange {
          * @param {object} info Exchange response for 1 market
          * @param {object} market CCXT market
          */
-
-        const marketId = this.safeString (info, 'symbol');
-        market = this.safeMarket (marketId, market, undefined, 'contract');
-        const leverageTiers = this.safeList (info, marketId, []);
         const results = [];
-        for (let j = 0; j < leverageTiers.length; j++) {
-            const leverageTier = leverageTiers[j];
+        for (let j = 0; j < info.length; j++) {
+            const leverageTier = info[j];
             results.push ({
                 'tier': this.safeNumber (leverageTier, 'tier'),
-                'symbol': marketId,
-                'currency': market['quote'],
+                'symbol': market['symbol'],
+                'currency': this.safeString (leverageTier, 'notionalCurrency'),
                 'minNotional': this.safeNumber (leverageTier, 'minNotional'),
                 'maxNotional': this.safeNumber (leverageTier, 'maxNotional'),
                 'maintenanceMarginRate': this.safeNumber (leverageTier, 'maintenanceMarginRate'),
