@@ -89,7 +89,8 @@ export default class gains extends Exchange {
                 'withdraw': false,
                 'ws': false,
             },
-            'timeframes': {  // TODO: update this with real timeframes provided by gains if needed
+            // TODO: update this with real timeframes provided by gains if needed
+            'timeframes': {
                 '1m': 1,
                 '5m': 5,
                 '10m': 10,
@@ -103,16 +104,21 @@ export default class gains extends Exchange {
                 '1w': 70,
                 '1M': 31,
             },
-            'urls': {  // TODO: update this with real URLs provided by gains
+            // TODO: update this with real URLs provided by gains
+            'urls': {
                 'logo': 'https://some-logo.jpg',
-                'api': 'http://127.0.0.1:8000',
+                'api': {
+                    'public': 'http://127.0.0.1:8000',
+                    'private': 'http://127.0.0.1:8000',
+                },
                 'www': 'https://gains.com/',
                 'doc': [
                     'https://gains.com/gains-offical-api-docs',
                 ],
                 'fees': 'https://gains.com/fees',
             },
-            'requiredCredentials': {  // TODO: update this with real credentials keys provided by gains
+            // TODO: update this with real credentials keys provided by gains
+            'requiredCredentials': {
                 'apiKey': true,
                 'secret': true,
             },
@@ -141,12 +147,14 @@ export default class gains extends Exchange {
                     ],
                 },
             },
-            'fees': {  // TODO: update this with real fees provided by gains
+            // TODO: update this with real fees provided by gains
+            'fees': {
             },
             'options': {
             },
             'precisionMode': TICK_SIZE,
-            'exceptions': {  // TODO: update this with real exceptions provided by gains
+            // TODO: update this with real exceptions provided by gains
+            'exceptions': {
                 'exact': {
                     '2003': InvalidOrder,
                     '2004': InvalidOrder,
@@ -220,13 +228,13 @@ export default class gains extends Exchange {
             'quoteId': this.safeString (market, 'quoteId'),
             'settle': undefined,
             'settleId': undefined,
-            'type': 'spot',
-            'spot': true,
+            'type': 'swap',
+            'spot': false,
             'margin': false,
-            'swap': false,
+            'swap': true,
             'future': false,
             'option': false,
-            'contract': this.safeBool (market, 'contract', false),
+            'contract': this.safeBool (market, 'contract', true),
             'linear': undefined,
             'inverse': undefined,
             'contractSize': undefined,
@@ -918,11 +926,13 @@ export default class gains extends Exchange {
 
     sign (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
         let endpoint = '/' + this.implodeParams (path, params);
-        let url = this.implodeHostname (this.urls['api'][api]);
+        const apiUrl = this.urls['api'];
+        let url = this.implodeHostname (apiUrl[api]);
         headers = (headers !== undefined) ? headers : {};
         if (api === 'private') {
             this.checkRequiredCredentials ();
-            headers['TEST_API_KEY_HEADER'] = this.apiKey;  // TODO replace TEST_API_KEY_HEADER and TEST_SECRET_KEY_HEADER with actual keys
+            // TODO replace TEST_API_KEY_HEADER and TEST_SECRET_KEY_HEADER with actual keys
+            headers['TEST_API_KEY_HEADER'] = this.apiKey;
             headers['TEST_SECRET_KEY_HEADER'] = this.secret;
         }
         const query = this.omit (params, this.extractParams (path));
