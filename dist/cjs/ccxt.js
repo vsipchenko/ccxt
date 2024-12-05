@@ -69,6 +69,7 @@ var deribit = require('./src/deribit.js');
 var digifinex = require('./src/digifinex.js');
 var exmo = require('./src/exmo.js');
 var fmfwio = require('./src/fmfwio.js');
+var gains = require('./src/gains.js');
 var gate = require('./src/gate.js');
 var gateio = require('./src/gateio.js');
 var gemini = require('./src/gemini.js');
@@ -257,6 +258,7 @@ const exchanges = {
     'digifinex': digifinex,
     'exmo': exmo,
     'fmfwio': fmfwio,
+    'gains': gains,
     'gate': gate,
     'gateio': gateio,
     'gemini': gemini,
@@ -492,6 +494,7 @@ exports.deribit = deribit;
 exports.digifinex = digifinex;
 exports.exmo = exmo;
 exports.fmfwio = fmfwio;
+exports.gains = gains;
 exports.gate = gate;
 exports.gateio = gateio;
 exports.gemini = gemini;

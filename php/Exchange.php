@@ -391,6 +391,7 @@ class Exchange {
         'digifinex',
         'exmo',
         'fmfwio',
+        'gains',
         'gate',
         'gateio',
         'gemini',

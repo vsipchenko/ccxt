@@ -103,6 +103,7 @@ import deribit from  './src/deribit.js'
 import digifinex from  './src/digifinex.js'
 import exmo from  './src/exmo.js'
 import fmfwio from  './src/fmfwio.js'
+import gains from  './src/gains.js'
 import gate from  './src/gate.js'
 import gateio from  './src/gateio.js'
 import gemini from  './src/gemini.js'
@@ -290,6 +291,7 @@ const exchanges = {
     'digifinex':              digifinex,
     'exmo':                   exmo,
     'fmfwio':                 fmfwio,
+    'gains':                  gains,
     'gate':                   gate,
     'gateio':                 gateio,
     'gemini':                 gemini,
@@ -616,6 +618,7 @@ export {
     digifinex,
     exmo,
     fmfwio,
+    gains,
     gate,
     gateio,
     gemini,
