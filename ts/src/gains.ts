@@ -19,7 +19,7 @@ export default class gains extends Exchange {
             'name': 'gains',
             'countries': [ 'EU' ],
             'version': 'v1',
-            'rateLimit': 100,
+            'rateLimit': 10,
             'pro': false,
             'has': {
                 'CORS': undefined,
@@ -53,7 +53,7 @@ export default class gains extends Exchange {
                 'fetchIsolatedBorrowRates': false,
                 'fetchLeverageTiers': true,
                 'fetchMarginMode': false,
-                'fetchMarkets': false,
+                'fetchMarkets': true,
                 'fetchMarkOHLCV': false,
                 'fetchMyTrades': false,
                 'fetchOHLCV': true,
@@ -89,7 +89,7 @@ export default class gains extends Exchange {
                 'withdraw': false,
                 'ws': false,
             },
-            'timeframes': {
+            'timeframes': {  // TODO: update this with real timeframes provided by gains if needed
                 '1m': 1,
                 '5m': 5,
                 '10m': 10,
@@ -103,19 +103,16 @@ export default class gains extends Exchange {
                 '1w': 70,
                 '1M': 31,
             },
-            'urls': {
-                'logo': 'https://some-logo.jpg',  // TODO: update this
-                'api': {
-                    'public': 'http://127.0.0.1:8000', // TODO: update this
-                    'private': 'http://127.0.0.1:8000',  // TODO: update this
-                },
-                'www': 'https://gains.com/',  // TODO: update this
+            'urls': {  // TODO: update this with real URLs provided by gains
+                'logo': 'https://some-logo.jpg',
+                'api': 'http://127.0.0.1:8000',
+                'www': 'https://gains.com/',
                 'doc': [
-                    'https://gains.com/gains-offical-api-docs',  // TODO: update this
+                    'https://gains.com/gains-offical-api-docs',
                 ],
-                'fees': 'https://gains.com/fees',  // TODO: update this
+                'fees': 'https://gains.com/fees',
             },
-            'requiredCredentials': {
+            'requiredCredentials': {  // TODO: update this with real credentials keys provided by gains
                 'apiKey': true,
                 'secret': true,
             },
@@ -144,18 +141,12 @@ export default class gains extends Exchange {
                     ],
                 },
             },
-            'fees': {
-                'trading': {
-                    'percentage': true,
-                    'maker': this.parseNumber ('0.0005'),
-                    'taker': this.parseNumber ('0.001'),
-                },
+            'fees': {  // TODO: update this with real fees provided by gains
             },
             'options': {
-                'brokerId': 'ccxt',
             },
             'precisionMode': TICK_SIZE,
-            'exceptions': {
+            'exceptions': {  // TODO: update this with real exceptions provided by gains
                 'exact': {
                     '2003': InvalidOrder,
                     '2004': InvalidOrder,
@@ -183,17 +174,42 @@ export default class gains extends Exchange {
         /**
          * @method
          * @name gains#fetchMarkets
-         * @description retrieves data on all markets for ace
+         * @description retrieves data on all markets for gains
          * @see TODO add a link to the relevant part of the exchange API documentation
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @returns {object[]} an array of objects representing market data
          */
         const response = await this.publicGetMarkets (params);
+        // [
+        //     {
+        //         "id": "BTC/USDT",
+        //         "symbol": "BTC/USDT",
+        //         "base": "BTC",
+        //         "quote": "USDT",
+        //         "baseId": "btc",
+        //         "quoteId": "usdt"
+        //     },
+        //     {
+        //         "id": "ETH/USDT",
+        //         "symbol": "ETH/USDT",
+        //         "base": "ETH",
+        //         "quote": "USDT",
+        //         "baseId": "eth",
+        //         "quoteId": "usdt"
+        //     }
+        // ]
         return this.parseMarkets (response);
     }
 
     parseMarket (market: Dict): Market {
-        // TODO: update this method with real implementation
+        // {
+        //     "id": "BTC/USDT",
+        //     "symbol": "BTC/USDT",
+        //     "base": "BTC",
+        //     "quote": "USDT",
+        //     "baseId": "btc",
+        //     "quoteId": "usdt"
+        // }
         return {
             'id': this.safeString (market, 'id'),
             'uppercaseId': undefined,
@@ -247,6 +263,24 @@ export default class gains extends Exchange {
     }
 
     parseOrder (order: Dict, market: Market = undefined): Order {
+        // {
+        //     "id": "12345-67890",
+        //     "timestamp": 1652376800000,
+        //     "status": "open",
+        //     "symbol": "BTC/USDT",
+        //     "type": "limit",
+        //     "side": "buy",
+        //     "price": 50000.0,
+        //     "amount": 0.1,
+        //     "filled": 0.0,
+        //     "remaining": 0.1,
+        //     "cost": 0.0,
+        //     "fee": {
+        //         "currency": "BTC",
+        //         "cost": 0.0009,
+        //         "rate": 0.002
+        //     }
+        // }
         const timestamp: Int = this.safeInteger (order, 'timestamp', undefined);
         return this.safeOrder ({
             'id': this.safeString (order, 'id'),
@@ -284,7 +318,6 @@ export default class gains extends Exchange {
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
          */
-        // TODO update this method with real implementation
         await this.loadMarkets ();
         const market = this.market (symbol);
         const request: Dict = {
@@ -292,28 +325,25 @@ export default class gains extends Exchange {
             'pair': market['id'],
         };
         const response = await this.privateGetOrder (this.extend (request, params));
+        // {
+        //     "id": "12345-67890",
+        //     "timestamp": 1652376800000,
+        //     "status": "open",
+        //     "symbol": "BTC/USDT",
+        //     "type": "limit",
+        //     "side": "buy",
+        //     "price": 50000.0,
+        //     "amount": 0.1,
+        //     "filled": 0.0,
+        //     "remaining": 0.1,
+        //     "cost": 0.0,
+        //     "fee": {
+        //         "currency": "BTC",
+        //         "cost": 0.0009,
+        //         "rate": 0.002
+        //     }
+        // }
         return this.parseOrder (response, undefined);
-    }
-
-    parseOrders (orders: object, market: Market = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Order[] {
-        // TODO check for implementation, might be issues
-        let results = [];
-        if (Array.isArray (orders)) {
-            for (let i = 0; i < orders.length; i++) {
-                const order = this.extend (this.parseOrder (orders[i], market), params);
-                results.push (order);
-            }
-        } else {
-            const ids = Object.keys (orders);
-            for (let i = 0; i < ids.length; i++) {
-                const id = ids[i];
-                const order = this.extend (this.parseOrder (this.extend ({ 'id': id }, orders[id]), market), params);
-                results.push (order);
-            }
-        }
-        results = this.sortBy (results, 'timestamp');
-        const symbol = (market !== undefined) ? market['symbol'] : undefined;
-        return this.filterBySymbolSinceLimit (results, symbol, since, limit) as Order[];
     }
 
     async fetchOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
@@ -343,6 +373,44 @@ export default class gains extends Exchange {
             request['limit'] = limit;
         }
         const response = await this.privateGetOrders (this.extend (request, params));
+        // [
+        //     {
+        //         "id": "12345-67890",
+        //         "timestamp": 1652376800000,
+        //         "status": "open",
+        //         "symbol": "BTC/USDT",
+        //         "type": "limit",
+        //         "side": "buy",
+        //         "price": 50000.0,
+        //         "amount": 0.1,
+        //         "filled": 0.0,
+        //         "remaining": 0.1,
+        //         "cost": 0.0,
+        //         "fee": {
+        //             "currency": "BTC",
+        //             "cost": 0.0009,
+        //             "rate": 0.002
+        //         }
+        //     },
+        //     {
+        //         "id": "12345-67891",
+        //         "timestamp": 1652376801000,
+        //         "status": "closed",
+        //         "symbol": "ETH/USDT",
+        //         "type": "market",
+        //         "side": "sell",
+        //         "price": 4000.0,
+        //         "amount": 1.0,
+        //         "filled": 1.0,
+        //         "remaining": 0.0,
+        //         "cost": 4000.0,
+        //         "fee": {
+        //             "currency": "ETH",
+        //             "cost": 0.004,
+        //             "rate": 0.001
+        //         }
+        //     }
+        // ]
         return this.parseOrders (response, market, since, limit);
     }
 
@@ -372,6 +440,24 @@ export default class gains extends Exchange {
             request['price'] = this.priceToPrecision (symbol, price);
         }
         const response = await this.privatePostOrder (this.extend (request, params));
+        // {
+        //     "id": "12345-67890",
+        //     "timestamp": 1652376800000,
+        //     "status": "open",
+        //     "symbol": "BTC/USDT",
+        //     "type": "limit",
+        //     "side": "buy",
+        //     "price": 50000.0,
+        //     "amount": 0.1,
+        //     "filled": 0.0,
+        //     "remaining": 0.1,
+        //     "cost": 0.0,
+        //     "fee": {
+        //         "currency": "BTC",
+        //         "cost": 0.0009,
+        //         "rate": 0.002
+        //     }
+        // }
         return this.parseOrder (response, market);
     }
 
@@ -393,10 +479,47 @@ export default class gains extends Exchange {
             'pair': market['id'],
         };
         const response = await this.privateDeleteOrder (this.extend (request, params));
+        // {
+        //     "id": "12345-67890",
+        //     "timestamp": 1652376800000,
+        //     "status": "canceled",
+        //     "symbol": "BTC/USDT",
+        //     "type": "limit",
+        //     "side": "buy",
+        //     "price": 50000.0,
+        //     "amount": 0.1,
+        //     "filled": 0.0,
+        //     "remaining": 0.1,
+        //     "cost": 0.0,
+        //     "fee": {
+        //         "currency": "BTC",
+        //         "cost": 0.0009,
+        //         "rate": 0.002
+        //     }
+        // }
         return this.parseOrder (response, market);
     }
 
     parseBalance (balance): Balances {
+        // {
+        //     "timestamp": 1652376800000,
+        //     "free": {
+        //         "BTC": 0.1,
+        //         "USD": 5000.0
+        //     },
+        //     "used": {
+        //         "BTC": 0.0,
+        //         "USD": 0.0
+        //     },
+        //     "total": {
+        //         "BTC": 0.1,
+        //         "USD": 5000.0
+        //     },
+        //     "debt": {
+        //         "BTC": 0.0,
+        //         "USD": 0.0
+        //     }
+        // }
         const timestamp = this.safeInteger (balance, 'timestamp');
         return this.safeBalance ({
             'info': balance,
@@ -420,6 +543,25 @@ export default class gains extends Exchange {
          */
         await this.loadMarkets ();
         const response = await this.privateGetBalance (params);
+        // {
+        //     "timestamp": 1652376800000,
+        //     "free": {
+        //         "BTC": 0.1,
+        //         "USD": 5000.0
+        //     },
+        //     "used": {
+        //         "BTC": 0.0,
+        //         "USD": 0.0
+        //     },
+        //     "total": {
+        //         "BTC": 0.1,
+        //         "USD": 5000.0
+        //     },
+        //     "debt": {
+        //         "BTC": 0.0,
+        //         "USD": 0.0
+        //     }
+        // }
         return this.parseBalance (response);
     }
 
@@ -440,7 +582,7 @@ export default class gains extends Exchange {
         const market = this.market (symbol);
         const request: Dict = {
             'pair': market['id'],
-            'timeframe': this.timeframes[timeframe],
+            'timeframe': this.safeString (this.timeframes, timeframe, timeframe),
         };
         if (limit !== undefined) {
             request['limit'] = limit;
@@ -449,10 +591,44 @@ export default class gains extends Exchange {
             request['since'] = since;
         }
         const response = await this.publicGetOhlcv (this.extend (request, params));
+        // [
+        //     [
+        //         1504541580000,  // UTC timestamp in milliseconds, integer
+        //         4235.4,         // (O)pen price, float
+        //         4240.6,         // (H)ighest price, float
+        //         4230.0,         // (L)owest price, float
+        //         4230.7,         // (C)losing price, float
+        //         37.72941911     // (V)olume float in base currency
+        //     ],
+        //     [
+        //         1504541640000,
+        //         4231.6,
+        //         4240.7,
+        //         4231.6,
+        //         4236.2,
+        //         61.46897393
+        //     ]
+        // ]
         return this.parseOHLCVs (response, market, timeframe, since, limit);
     }
 
     parseTicker (ticker: Dict, market: Market = undefined): Ticker {
+        // {
+        //     "symbol": "BTC/USDT",
+        //     "timestamp": 1652376800000,
+        //     "high": 50000.0,
+        //     "low": 49000.0,
+        //     "bid": 49500.0,
+        //     "bidVolume": 0.1,
+        //     "ask": 50500.0,
+        //     "askVolume": 0.1,
+        //     "vwap": 50000.0,
+        //     "open": 49000.0,
+        //     "close": 50000.0,
+        //     "previousClose": 49000.0,
+        //     "baseVolume": 0.1,
+        //     "quoteVolume": 5000.0
+        // }
         const marketId = this.safeString (ticker, 'id');
         const symbol = this.safeSymbol (marketId, market);
         const timestamp = this.safeInteger2 (ticker, 'timestamp', 'timestamp');
@@ -496,6 +672,22 @@ export default class gains extends Exchange {
             'pair': market['id'],
         };
         const response = await this.publicGetTicker (this.extend (request, params));
+        // {
+        //     "symbol": "BTC/USDT",
+        //     "timestamp": 1652376800000,
+        //     "high": 50000.0,
+        //     "low": 49000.0,
+        //     "bid": 49500.0,
+        //     "bidVolume": 0.1,
+        //     "ask": 50500.0,
+        //     "askVolume": 0.1,
+        //     "vwap": 50000.0,
+        //     "open": 49000.0,
+        //     "close": 50000.0,
+        //     "previousClose": 49000.0,
+        //     "baseVolume": 0.1,
+        //     "quoteVolume": 5000.0
+        // }
         return this.parseTicker (response, market);
     }
 
@@ -504,6 +696,24 @@ export default class gains extends Exchange {
          * @param {object} info Exchange response for 1 market
          * @param {object} market CCXT market
          */
+        // [
+        //     {
+        //         "tier": 1,
+        //         "notionalCurrency": "USD",
+        //         "minNotional": 10.0,
+        //         "maxNotional": 100.0,
+        //         "maintenanceMarginRate": 0.01,
+        //         "maxLeverage": 10
+        //     },
+        //     {
+        //         "tier": 2,
+        //         "notionalCurrency": "USD",
+        //         "minNotional": 100.0,
+        //         "maxNotional": 1000.0,
+        //         "maintenanceMarginRate": 0.02,
+        //         "maxLeverage": 20
+        //     }
+        // ]
         const results = [];
         for (let j = 0; j < info.length; j++) {
             const leverageTier = info[j];
@@ -531,6 +741,26 @@ export default class gains extends Exchange {
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @returns {object} a dictionary of [leverage tiers structures]{@link https://docs.ccxt.com/#/?id=leverage-tiers-structure}, indexed by market symbols
          */
+        // {
+        //     "BTC/USDT": [
+        //         {
+        //             "tier": 1,
+        //             "notionalCurrency": "USD",
+        //             "minNotional": 10.0,
+        //             "maxNotional": 100.0,
+        //             "maintenanceMarginRate": 0.01,
+        //             "maxLeverage": 10
+        //         },
+        //         {
+        //             "tier": 2,
+        //             "notionalCurrency": "USD",
+        //             "minNotional": 100.0,
+        //             "maxNotional": 1000.0,
+        //             "maintenanceMarginRate": 0.02,
+        //             "maxLeverage": 20
+        //         }
+        //     ]
+        // }
         await this.loadMarkets ();
         const response = await this.privateGetLeverageTiers (params);
         symbols = this.marketSymbols (symbols);
@@ -558,9 +788,38 @@ export default class gains extends Exchange {
             'leverage': leverage,
         };
         return await this.privatePostLeverage (this.extend (request, params));
+        // {
+        //     "symbol": "BTC/USDT",
+        //     "longLeverage": 100,
+        //     "shortLeverage": 75
+        // }
     }
 
     parseTrade (trade: Dict, market: Market = undefined): Trade {
+        // {
+        //     "id": "12345-67890",
+        //     "timestamp": 1652376800000,
+        //     "symbol": "BTC/USDT",
+        //     "order": "12345-67890",
+        //     "type": "limit",
+        //     "side": "buy",
+        //     "takerOrMaker": "taker",
+        //     "price": 50000.0,
+        //     "amount": 0.1,
+        //     "cost": 5000.0,
+        //     "fee": {
+        //         "cost": 0.0015,
+        //         "currency": "ETH",
+        //         "rate": 0.002
+        //     },
+        //     "fees": [
+        //         {
+        //             "cost": 0.0015,
+        //             "currency": "ETH",
+        //             "rate": 0.002
+        //         }
+        //     ]
+        // }
         const timestamp = this.safeInteger (trade, 'timestamp');
         market = this.safeMarket (undefined, market);
         return this.safeTrade ({
@@ -604,6 +863,56 @@ export default class gains extends Exchange {
             request['since'] = since;
         }
         const response = await this.publicGetTrades (this.extend (request, params));
+        // [
+        //     {
+        //         "id": "12345-67890",
+        //         "timestamp": 1652376800000,
+        //         "symbol": "BTC/USDT",
+        //         "order": "12345-67890",
+        //         "type": "limit",
+        //         "side": "buy",
+        //         "takerOrMaker": "taker",
+        //         "price": 50000.0,
+        //         "amount": 0.1,
+        //         "cost": 5000.0,
+        //         "fee": {
+        //             "cost": 0.0015,
+        //             "currency": "ETH",
+        //             "rate": 0.002
+        //         },
+        //         "fees": [
+        //             {
+        //                 "cost": 0.0015,
+        //                 "currency": "ETH",
+        //                 "rate": 0.002
+        //             }
+        //         ]
+        //     },
+        //     {
+        //         "id": "12345-67891",
+        //         "timestamp": 1652376801000,
+        //         "symbol": "BTC/USDT",
+        //         "order": "12345-67891",
+        //         "type": "limit",
+        //         "side": "sell",
+        //         "takerOrMaker": "maker",
+        //         "price": 50000.0,
+        //         "amount": 0.1,
+        //         "cost": 5000.0,
+        //         "fee": {
+        //             "cost": 0.0015,
+        //             "currency": "ETH",
+        //             "rate": 0.002
+        //         },
+        //         "fees": [
+        //             {
+        //                 "cost": 0.0015,
+        //                 "currency": "ETH",
+        //                 "rate": 0.002
+        //             }
+        //         ]
+        //     }
+        // ]
         return this.parseTrades (response, market, since, limit);
     }
 
@@ -613,7 +922,7 @@ export default class gains extends Exchange {
         headers = (headers !== undefined) ? headers : {};
         if (api === 'private') {
             this.checkRequiredCredentials ();
-            headers['TEST_API_KEY_HEADER'] = this.apiKey;
+            headers['TEST_API_KEY_HEADER'] = this.apiKey;  // TODO replace TEST_API_KEY_HEADER and TEST_SECRET_KEY_HEADER with actual keys
             headers['TEST_SECRET_KEY_HEADER'] = this.secret;
         }
         const query = this.omit (params, this.extractParams (path));
