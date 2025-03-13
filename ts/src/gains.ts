@@ -1,9 +1,28 @@
-
 //  ---------------------------------------------------------------------------
 
 import Exchange from './abstract/gains.js';
-import { ArgumentsRequired, InsufficientFunds, InvalidOrder, AuthenticationError, BadRequest, ExchangeError } from './base/errors.js';
-import type { Balances, Dict, int, Int, LeverageTier, LeverageTiers, Market, Num, OHLCV, Order, OrderSide, OrderType, Str, Strings, Ticker, Trade } from './base/types.js';
+import { ArgumentsRequired, NotSupported, ExchangeError } from './base/errors.js';
+import type {
+    Balances,
+    Dict,
+    int,
+    Int,
+    LeverageTier,
+    LeverageTiers,
+    Market,
+    Num,
+    OHLCV,
+    Order,
+    OrderSide,
+    OrderType,
+    Str,
+    Strings,
+    Ticker,
+    Trade,
+    Fee,
+    Leverage,
+    Bool,
+} from './base/types.js';
 import { TICK_SIZE } from './base/functions/number.js';
 
 //  ---------------------------------------------------------------------------
@@ -89,7 +108,6 @@ export default class gains extends Exchange {
                 'withdraw': false,
                 'ws': false,
             },
-            // TODO: update this with real timeframes provided by gains if needed
             'timeframes': {
                 '1m': 1,
                 '5m': 5,
@@ -104,7 +122,6 @@ export default class gains extends Exchange {
                 '1w': 70,
                 '1M': 31,
             },
-            // TODO: update this with real URLs provided by gains
             'urls': {
                 'logo': 'https://some-logo.jpg',
                 'api': {
@@ -117,11 +134,7 @@ export default class gains extends Exchange {
                 ],
                 'fees': 'https://gains.com/fees',
             },
-            // TODO: update this with real credentials keys provided by gains
-            'requiredCredentials': {
-                'apiKey': true,
-                'secret': true,
-            },
+            'requiredCredentials': {},
             'api': {
                 'public': {
                     'get': [
@@ -147,31 +160,12 @@ export default class gains extends Exchange {
                     ],
                 },
             },
-            // TODO: update this with real fees provided by gains
             'fees': {
             },
             'options': {
             },
             'precisionMode': TICK_SIZE,
-            // TODO: update this with real exceptions provided by gains
             'exceptions': {
-                'exact': {
-                    '2003': InvalidOrder,
-                    '2004': InvalidOrder,
-                    '2005': InvalidOrder,
-                    '2021': InsufficientFunds,
-                    '2036': InvalidOrder,
-                    '2039': InvalidOrder,
-                    '2053': InvalidOrder,
-                    '2061': BadRequest,
-                    '2063': InvalidOrder,
-                    '9996': BadRequest,
-                    '10012': AuthenticationError,
-                    '20182': AuthenticationError,
-                    '20183': InvalidOrder,
-                },
-                'broad': {
-                },
             },
             'commonCurrencies': {
             },
@@ -183,41 +177,22 @@ export default class gains extends Exchange {
          * @method
          * @name gains#fetchMarkets
          * @description retrieves data on all markets for gains
-         * @see TODO add a link to the relevant part of the exchange API documentation
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @returns {object[]} an array of objects representing market data
          */
         const response = await this.publicGetMarkets (params);
-        // [
-        //     {
-        //         "id": "BTC/USDT",
-        //         "symbol": "BTC/USDT",
-        //         "base": "BTC",
-        //         "quote": "USDT",
-        //         "baseId": "btc",
-        //         "quoteId": "usdt"
-        //     },
-        //     {
-        //         "id": "ETH/USDT",
-        //         "symbol": "ETH/USDT",
-        //         "base": "ETH",
-        //         "quote": "USDT",
-        //         "baseId": "eth",
-        //         "quoteId": "usdt"
-        //     }
-        // ]
         return this.parseMarkets (response);
     }
 
+    parseMarkets (markets: Dict[], params = {}): Market[] {
+        const result = [];
+        for (let i = 0; i < markets.length; i++) {
+            result.push (this.parseOrder (markets[i]));
+        }
+        return result;
+    }
+
     parseMarket (market: Dict): Market {
-        // {
-        //     "id": "BTC/USDT",
-        //     "symbol": "BTC/USDT",
-        //     "base": "BTC",
-        //     "quote": "USDT",
-        //     "baseId": "btc",
-        //     "quoteId": "usdt"
-        // }
         return {
             'id': this.safeString (market, 'id'),
             'uppercaseId': undefined,
@@ -228,13 +203,13 @@ export default class gains extends Exchange {
             'quoteId': this.safeString (market, 'quoteId'),
             'settle': undefined,
             'settleId': undefined,
-            'type': 'swap',
-            'spot': false,
+            'type': 'spot',
+            'spot': true,
             'margin': false,
-            'swap': true,
+            'swap': false,
             'future': false,
             'option': false,
-            'contract': this.safeBool (market, 'contract', true),
+            'contract': false,
             'linear': undefined,
             'inverse': undefined,
             'contractSize': undefined,
@@ -244,8 +219,8 @@ export default class gains extends Exchange {
             'optionType': undefined,
             'limits': {
                 'amount': {
-                    'min': 0.1,
-                    'max': 480286,
+                    'min': undefined,
+                    'max': undefined,
                 },
                 'price': {
                     'min': undefined,
@@ -261,97 +236,68 @@ export default class gains extends Exchange {
                 },
             },
             'precision': {
-                'price': 100,
-                'amount': 1,
+                'price': undefined,
+                'amount': undefined,
             },
-            'active': undefined,
+            'active': true,
             'created': undefined,
             'info': market,
         };
     }
 
-    parseOrder (order: Dict, market: Market = undefined): Order {
-        // {
-        //     "id": "12345-67890",
-        //     "timestamp": 1652376800000,
-        //     "status": "open",
-        //     "symbol": "BTC/USDT",
-        //     "type": "limit",
-        //     "side": "buy",
-        //     "price": 50000.0,
-        //     "amount": 0.1,
-        //     "filled": 0.0,
-        //     "remaining": 0.1,
-        //     "cost": 0.0,
-        //     "fee": {
-        //         "currency": "BTC",
-        //         "cost": 0.0009,
-        //         "rate": 0.002
-        //     }
-        // }
-        const timestamp: Int = this.safeInteger (order, 'timestamp', undefined);
-        return this.safeOrder ({
-            'id': this.safeString (order, 'id'),
-            'clientOrderId': undefined,
-            'timestamp': this.safeInteger (order, 'timestamp', undefined),
-            'datetime': this.iso8601 (timestamp),
-            'lastTradeTimestamp': undefined,
-            'symbol': this.safeString (order, 'symbol', undefined),
-            'type': this.safeString (order, 'type', undefined),
-            'timeInForce': undefined,
-            'postOnly': undefined,
-            'side': this.safeString (order, 'side', undefined),
-            'price': this.safeFloat (order, 'price', undefined),
-            'stopPrice': undefined,
-            'amount': this.safeFloat (order, 'amount', undefined),
-            'cost': undefined,
-            'average': this.safeFloat (order, 'average', undefined),
-            'filled': this.safeFloat (order, 'filled', undefined),
-            'remaining': this.safeFloat (order, 'remaining', undefined),
-            'status': this.safeString (order, 'status', undefined),
-            'fee': this.safeDict (order, 'fee', {}),
-            'trades': this.safeList (order, 'trades', []),
-            'info': order,
-        }, market);
+    parseOrders (orders: Dict[], market: Market = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Order[] {
+        const result = [];
+        for (let i = 0; i < orders.length; i++) {
+            result.push (this.parseOrder (orders[i], market));
+        }
+        return result;
     }
 
-    async fetchOrder (id: string, symbol: Str = undefined, params = {}) {
+    parseOrder (order: Dict, market: Market = undefined): Order {
+        const timestamp: Int = this.safeInteger (order, 'timestamp');
+        return {
+            'id': this.safeString (order, 'id'),
+            'clientOrderId': this.safeString (order, 'clientOrderId'),
+            'timestamp': timestamp,
+            'datetime': this.iso8601 (timestamp),
+            'lastTradeTimestamp': this.safeInteger (order, 'lastTradeTimestamp'),
+            'lastUpdateTimestamp': this.safeInteger (order, 'lastUpdated'),
+            'symbol': this.safeString (order, 'symbol'),
+            'type': this.safeStringLower (order, 'type'),
+            'timeInForce': this.safeString (order, 'timeInForce'),
+            'postOnly': undefined,
+            'side': this.safeStringLower (order, 'side'),
+            'price': this.safeNumber (order, 'price'),
+            'stopPrice': undefined,
+            'amount': this.safeNumber (order, 'amount'),
+            'cost': this.safeNumber (order, 'cost'),
+            'average': this.safeNumber (order, 'average'),
+            'filled': this.safeNumber (order, 'filled'),
+            'remaining': this.safeNumber (order, 'remaining'),
+            'status': this.safeStringLower (order, 'status'),
+            'fee': this.parseFee (order),
+            'reduceOnly': false,
+            'trades': this.parseTrades (this.safeValue (order, 'trades', [])),
+            'info': order,
+        };
+    }
+
+    async fetchOrder (id: string, symbol: Str = undefined, params = {}): Promise<Order> {
         /**
          * @method
          * @name gains#fetchOrder
          * @description fetches information on an order made by the user
-         * @see TODO add a link to the relevant part of the exchange API documentation
          * @param {string} id the order id
          * @param {string} symbol unified symbol of the market the order was made in
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
          */
-        await this.loadMarkets ();
-        const market = this.market (symbol);
         const request: Dict = {
             'id': id,
-            'pair': market['id'],
+            'pair': symbol,
         };
         const response = await this.privateGetOrder (this.extend (request, params));
-        // {
-        //     "id": "12345-67890",
-        //     "timestamp": 1652376800000,
-        //     "status": "open",
-        //     "symbol": "BTC/USDT",
-        //     "type": "limit",
-        //     "side": "buy",
-        //     "price": 50000.0,
-        //     "amount": 0.1,
-        //     "filled": 0.0,
-        //     "remaining": 0.1,
-        //     "cost": 0.0,
-        //     "fee": {
-        //         "currency": "BTC",
-        //         "cost": 0.0009,
-        //         "rate": 0.002
-        //     }
-        // }
-        return this.parseOrder (response, undefined);
+        return this.parseOrder (response);
     }
 
     async fetchOrders (symbol: Str = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Order[]> {
@@ -359,7 +305,6 @@ export default class gains extends Exchange {
          * @method
          * @name gains#fetchOrders
          * @description fetches information on multiple orders made by the user
-         * @see TODO add a link to the relevant part of the exchange API documentation
          * @param {string} symbol unified market symbol of the market orders were made in
          * @param {int} [since] the earliest time in ms to fetch orders for
          * @param {int} [limit] the maximum number of order structures to retrieve
@@ -372,7 +317,7 @@ export default class gains extends Exchange {
         await this.loadMarkets ();
         const market = this.market (symbol);
         const request: Dict = {
-            'pair': market['id'],
+            'symbol': symbol,
         };
         if (since !== undefined) {
             request['since'] = since;
@@ -381,53 +326,14 @@ export default class gains extends Exchange {
             request['limit'] = limit;
         }
         const response = await this.privateGetOrders (this.extend (request, params));
-        // [
-        //     {
-        //         "id": "12345-67890",
-        //         "timestamp": 1652376800000,
-        //         "status": "open",
-        //         "symbol": "BTC/USDT",
-        //         "type": "limit",
-        //         "side": "buy",
-        //         "price": 50000.0,
-        //         "amount": 0.1,
-        //         "filled": 0.0,
-        //         "remaining": 0.1,
-        //         "cost": 0.0,
-        //         "fee": {
-        //             "currency": "BTC",
-        //             "cost": 0.0009,
-        //             "rate": 0.002
-        //         }
-        //     },
-        //     {
-        //         "id": "12345-67891",
-        //         "timestamp": 1652376801000,
-        //         "status": "closed",
-        //         "symbol": "ETH/USDT",
-        //         "type": "market",
-        //         "side": "sell",
-        //         "price": 4000.0,
-        //         "amount": 1.0,
-        //         "filled": 1.0,
-        //         "remaining": 0.0,
-        //         "cost": 4000.0,
-        //         "fee": {
-        //             "currency": "ETH",
-        //             "cost": 0.004,
-        //             "rate": 0.001
-        //         }
-        //     }
-        // ]
         return this.parseOrders (response, market, since, limit);
     }
 
-    async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params = {}) {
+    async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params = {}): Promise<Order> {
         /**
          * @method
          * @name gains#createOrder
          * @description create a trade order
-         * @see TODO add a link to the relevant part of the exchange API documentation
          * @param {string} symbol unified symbol of the market to create an order in
          * @param {string} type 'market' or 'limit'
          * @param {string} side 'buy' or 'sell'
@@ -439,42 +345,26 @@ export default class gains extends Exchange {
         await this.loadMarkets ();
         const market = this.market (symbol);
         const request: Dict = {
-            'pair': market['id'],
+            'pair': symbol,
             'type': type,
             'side': side,
-            'amount': this.amountToPrecision (symbol, amount),
+            'amount': amount,
         };
-        if (type === 'limit') {
-            request['price'] = this.priceToPrecision (symbol, price);
+        if (type !== 'market') {
+            throw new NotSupported (this.id + ' createOrder() supports market orders only');
+        }
+        if (side !== 'buy') {
+            throw new NotSupported (this.id + ' createOrder() supports buy orders only');
         }
         const response = await this.privatePostOrder (this.extend (request, params));
-        // {
-        //     "id": "12345-67890",
-        //     "timestamp": 1652376800000,
-        //     "status": "open",
-        //     "symbol": "BTC/USDT",
-        //     "type": "limit",
-        //     "side": "buy",
-        //     "price": 50000.0,
-        //     "amount": 0.1,
-        //     "filled": 0.0,
-        //     "remaining": 0.1,
-        //     "cost": 0.0,
-        //     "fee": {
-        //         "currency": "BTC",
-        //         "cost": 0.0009,
-        //         "rate": 0.002
-        //     }
-        // }
         return this.parseOrder (response, market);
     }
 
-    async cancelOrder (id: string, symbol: Str = undefined, params = {}) {
+    async cancelOrder (id: string, symbol: Str = undefined, params = {}): Promise<Order> {
         /**
          * @method
          * @name gains#cancelOrder
          * @description cancels an open order
-         * @see TODO add a link to the relevant part of the exchange API documentation
          * @param {string} id order id
          * @param {string} symbol unified symbol of the market the order was made in
          * @param {object} [params] extra parameters specific to the exchange API endpoint
@@ -484,60 +374,22 @@ export default class gains extends Exchange {
         const market = this.market (symbol);
         const request: Dict = {
             'id': id,
-            'pair': market['id'],
         };
         const response = await this.privateDeleteOrder (this.extend (request, params));
-        // {
-        //     "id": "12345-67890",
-        //     "timestamp": 1652376800000,
-        //     "status": "canceled",
-        //     "symbol": "BTC/USDT",
-        //     "type": "limit",
-        //     "side": "buy",
-        //     "price": 50000.0,
-        //     "amount": 0.1,
-        //     "filled": 0.0,
-        //     "remaining": 0.1,
-        //     "cost": 0.0,
-        //     "fee": {
-        //         "currency": "BTC",
-        //         "cost": 0.0009,
-        //         "rate": 0.002
-        //     }
-        // }
         return this.parseOrder (response, market);
     }
 
     parseBalance (balance): Balances {
-        // {
-        //     "timestamp": 1652376800000,
-        //     "free": {
-        //         "BTC": 0.1,
-        //         "USD": 5000.0
-        //     },
-        //     "used": {
-        //         "BTC": 0.0,
-        //         "USD": 0.0
-        //     },
-        //     "total": {
-        //         "BTC": 0.1,
-        //         "USD": 5000.0
-        //     },
-        //     "debt": {
-        //         "BTC": 0.0,
-        //         "USD": 0.0
-        //     }
-        // }
         const timestamp = this.safeInteger (balance, 'timestamp');
-        return this.safeBalance ({
+        return {
             'info': balance,
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
-            'free': this.safeDict (balance, 'free', {}),
-            'used': this.safeDict (balance, 'used', {}),
-            'total': this.safeDict (balance, 'total', {}),
-            'debt': this.safeDict (balance, 'debt', {}),
-        });
+            'free': this.safeValue (balance, 'free', {}),
+            'used': this.safeValue (balance, 'used', {}),
+            'total': this.safeValue (balance, 'total', {}),
+            'debt': this.safeValue (balance, 'debt', {}),
+        };
     }
 
     async fetchBalance (params = {}): Promise<Balances> {
@@ -549,28 +401,30 @@ export default class gains extends Exchange {
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
          */
-        await this.loadMarkets ();
         const response = await this.privateGetBalance (params);
-        // {
-        //     "timestamp": 1652376800000,
-        //     "free": {
-        //         "BTC": 0.1,
-        //         "USD": 5000.0
-        //     },
-        //     "used": {
-        //         "BTC": 0.0,
-        //         "USD": 0.0
-        //     },
-        //     "total": {
-        //         "BTC": 0.1,
-        //         "USD": 5000.0
-        //     },
-        //     "debt": {
-        //         "BTC": 0.0,
-        //         "USD": 0.0
-        //     }
-        // }
         return this.parseBalance (response);
+    }
+
+    parseOHLCVs (ohlcvs: object[], market: Market = undefined, timeframe: string = '1m', since: Int = undefined, limit: Int = undefined, tail: Bool = false): OHLCV[] {
+        const results = [];
+        for (let i = 0; i < ohlcvs.length; i++) {
+            results.push (this.parseOHLCV (ohlcvs[i], market));
+        }
+        return results;
+    }
+
+    parseOHLCV (ohlcv, market: Market = undefined): OHLCV {
+        if (Array.isArray (ohlcv)) {
+            return [
+                this.safeInteger (ohlcv, 0),  // timestamp
+                this.safeNumber (ohlcv, 1),   // open
+                this.safeNumber (ohlcv, 2),   // high
+                this.safeNumber (ohlcv, 3),   // low
+                this.safeNumber (ohlcv, 4),   // close
+                this.safeNumber (ohlcv, 5),   // volume
+            ];
+        }
+        return ohlcv;
     }
 
     async fetchOHLCV (symbol: string, timeframe = '1m', since: Int = undefined, limit: Int = undefined, params = {}): Promise<OHLCV[]> {
@@ -578,7 +432,6 @@ export default class gains extends Exchange {
          * @method
          * @name gains#fetchOHLCV
          * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
-         * @see TODO add a link to the relevant part of the exchange API documentation
          * @param {string} symbol unified symbol of the market to fetch OHLCV data for
          * @param {string} timeframe the length of time each candle represents
          * @param {int} [since] timestamp in ms of the earliest candle to fetch
@@ -586,11 +439,9 @@ export default class gains extends Exchange {
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @returns {int[][]} A list of candles ordered as timestamp, open, high, low, close, volume
          */
-        await this.loadMarkets ();
-        const market = this.market (symbol);
         const request: Dict = {
-            'pair': market['id'],
-            'timeframe': this.safeString (this.timeframes, timeframe, timeframe),
+            'pair': symbol,
+            'timeframe': timeframe,
         };
         if (limit !== undefined) {
             request['limit'] = limit;
@@ -599,69 +450,36 @@ export default class gains extends Exchange {
             request['since'] = since;
         }
         const response = await this.publicGetOhlcv (this.extend (request, params));
-        // [
-        //     [
-        //         1504541580000,  // UTC timestamp in milliseconds, integer
-        //         4235.4,         // (O)pen price, float
-        //         4240.6,         // (H)ighest price, float
-        //         4230.0,         // (L)owest price, float
-        //         4230.7,         // (C)losing price, float
-        //         37.72941911     // (V)olume float in base currency
-        //     ],
-        //     [
-        //         1504541640000,
-        //         4231.6,
-        //         4240.7,
-        //         4231.6,
-        //         4236.2,
-        //         61.46897393
-        //     ]
-        // ]
-        return this.parseOHLCVs (response, market, timeframe, since, limit);
+        return this.parseOHLCVs (response);
     }
 
     parseTicker (ticker: Dict, market: Market = undefined): Ticker {
-        // {
-        //     "symbol": "BTC/USDT",
-        //     "timestamp": 1652376800000,
-        //     "high": 50000.0,
-        //     "low": 49000.0,
-        //     "bid": 49500.0,
-        //     "bidVolume": 0.1,
-        //     "ask": 50500.0,
-        //     "askVolume": 0.1,
-        //     "vwap": 50000.0,
-        //     "open": 49000.0,
-        //     "close": 50000.0,
-        //     "previousClose": 49000.0,
-        //     "baseVolume": 0.1,
-        //     "quoteVolume": 5000.0
-        // }
-        const marketId = this.safeString (ticker, 'id');
-        const symbol = this.safeSymbol (marketId, market);
-        const timestamp = this.safeInteger2 (ticker, 'timestamp', 'timestamp');
-        return this.safeTicker ({
+        const symbol = this.safeString (ticker, 'symbol');
+        const timestamp = this.safeInteger (ticker, 'timestamp');
+        return {
             'symbol': symbol,
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
-            'high': this.safeString (ticker, 'high'),
-            'low': this.safeString (ticker, 'low'),
-            'bid': this.safeString (ticker, 'bid'),
-            'bidVolume': this.safeString (ticker, 'bid_volume'),
-            'ask': this.safeString (ticker, 'ask'),
-            'askVolume': this.safeString (ticker, 'askVolume'),
-            'vwap': this.safeString (ticker, 'vwap'),
-            'open': this.safeString (ticker, 'open'),
-            'close': this.safeString (ticker, 'close'),
-            'last': undefined,
-            'previousClose': this.safeString (ticker, 'previousClose'),
+            'high': this.safeNumber (ticker, 'high'),
+            'low': this.safeNumber (ticker, 'low'),
+            'bid': this.safeNumber (ticker, 'bid'),
+            'bidVolume': this.safeNumber (ticker, 'bidVolume'),
+            'ask': this.safeNumber (ticker, 'ask'),
+            'askVolume': this.safeNumber (ticker, 'askVolume'),
+            'vwap': this.safeNumber (ticker, 'vwap'),
+            'open': this.safeNumber (ticker, 'open'),
+            'close': this.safeNumber (ticker, 'close'),
+            'last': this.safeNumber (ticker, 'close'),
+            'previousClose': this.safeNumber (ticker, 'previousClose'),
             'change': undefined,
             'percentage': undefined,
             'average': undefined,
-            'baseVolume': this.safeString (ticker, 'baseVolume'),
-            'quoteVolume': this.safeString (ticker, 'quoteVolume'),
+            'baseVolume': this.safeNumber (ticker, 'baseVolume'),
+            'indexPrice': this.safeNumber (ticker, 'indexPrice'),
+            'markPrice': this.safeNumber (ticker, 'markPrice'),
+            'quoteVolume': this.safeNumber (ticker, 'quoteVolume'),
             'info': ticker,
-        }, market);
+        };
     }
 
     async fetchTicker (symbol: string, params = {}): Promise<Ticker> {
@@ -669,7 +487,6 @@ export default class gains extends Exchange {
          * @method
          * @name gains#fetchTicker
          * @description fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-         * @see TODO add a link to the relevant part of the exchange API documentation
          * @param {string} symbol unified symbol of the market to fetch the ticker for
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @returns {object} a [ticker structure]{@link https://docs.ccxt.com/#/?id=ticker-structure}
@@ -677,57 +494,18 @@ export default class gains extends Exchange {
         await this.loadMarkets ();
         const market = this.market (symbol);
         const request: Dict = {
-            'pair': market['id'],
+            'pair': symbol,
         };
         const response = await this.publicGetTicker (this.extend (request, params));
-        // {
-        //     "symbol": "BTC/USDT",
-        //     "timestamp": 1652376800000,
-        //     "high": 50000.0,
-        //     "low": 49000.0,
-        //     "bid": 49500.0,
-        //     "bidVolume": 0.1,
-        //     "ask": 50500.0,
-        //     "askVolume": 0.1,
-        //     "vwap": 50000.0,
-        //     "open": 49000.0,
-        //     "close": 50000.0,
-        //     "previousClose": 49000.0,
-        //     "baseVolume": 0.1,
-        //     "quoteVolume": 5000.0
-        // }
         return this.parseTicker (response, market);
     }
 
     parseMarketLeverageTiers (info, market: Market = undefined): LeverageTier[] {
-        /**
-         * @param {object} info Exchange response for 1 market
-         * @param {object} market CCXT market
-         */
-        // [
-        //     {
-        //         "tier": 1,
-        //         "notionalCurrency": "USD",
-        //         "minNotional": 10.0,
-        //         "maxNotional": 100.0,
-        //         "maintenanceMarginRate": 0.01,
-        //         "maxLeverage": 10
-        //     },
-        //     {
-        //         "tier": 2,
-        //         "notionalCurrency": "USD",
-        //         "minNotional": 100.0,
-        //         "maxNotional": 1000.0,
-        //         "maintenanceMarginRate": 0.02,
-        //         "maxLeverage": 20
-        //     }
-        // ]
         const results = [];
         for (let j = 0; j < info.length; j++) {
             const leverageTier = info[j];
             results.push ({
                 'tier': this.safeNumber (leverageTier, 'tier'),
-                'symbol': market['symbol'],
                 'currency': this.safeString (leverageTier, 'notionalCurrency'),
                 'minNotional': this.safeNumber (leverageTier, 'minNotional'),
                 'maxNotional': this.safeNumber (leverageTier, 'maxNotional'),
@@ -743,39 +521,29 @@ export default class gains extends Exchange {
         /**
          * @method
          * @name gains#fetchLeverageTiers
-         * @see TODO add a link to the relevant part of the exchange API documentation
          * @description retrieve information on the maximum leverage, and maintenance margin for trades of varying trade sizes
          * @param {string[]|undefined} symbols list of unified market symbols
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @returns {object} a dictionary of [leverage tiers structures]{@link https://docs.ccxt.com/#/?id=leverage-tiers-structure}, indexed by market symbols
          */
-        // {
-        //     "BTC/USDT": [
-        //         {
-        //             "tier": 1,
-        //             "notionalCurrency": "USD",
-        //             "minNotional": 10.0,
-        //             "maxNotional": 100.0,
-        //             "maintenanceMarginRate": 0.01,
-        //             "maxLeverage": 10
-        //         },
-        //         {
-        //             "tier": 2,
-        //             "notionalCurrency": "USD",
-        //             "minNotional": 100.0,
-        //             "maxNotional": 1000.0,
-        //             "maintenanceMarginRate": 0.02,
-        //             "maxLeverage": 20
-        //         }
-        //     ]
-        // }
-        await this.loadMarkets ();
-        const response = await this.privateGetLeverageTiers (params);
-        symbols = this.marketSymbols (symbols);
-        return this.parseLeverageTiers (response, symbols, 'symbol');
+        const request: Dict = {
+            'symbols': symbols,
+        };
+        const response = await this.privateGetLeverageTiers (this.extend (request, params));
+        return this.parseLeverageTiers (response);
     }
 
-    async setLeverage (leverage: Int, symbol: Str = undefined, params = {}) {
+    parseLeverage (leverage: Dict, market: Market = undefined): Leverage {
+        return {
+            'info': leverage,
+            'symbol': this.safeString (leverage, 'symbol'),
+            'marginMode': this.safeString (leverage, 'marginMode'),
+            'longLeverage': this.safeNumber (leverage, 'longLeverage'),
+            'shortLeverage': this.safeNumber (leverage, 'shortLeverage'),
+        };
+    }
+
+    async setLeverage (leverage: Int, symbol: Str = undefined, params = {}): Promise<Dict> {
         /**
          * @method
          * @name gains#setLeverage
@@ -789,62 +557,55 @@ export default class gains extends Exchange {
         if (symbol === undefined) {
             throw new ArgumentsRequired (this.id + ' setLeverage() requires a symbol argument');
         }
-        await this.loadMarkets ();
-        const market = this.market (symbol);
         const request: Dict = {
-            'pair': market['id'],
-            'leverage': leverage,
+            'pair': symbol,
+            'long_leverage': leverage,
+            'short_leverage': leverage,
         };
-        return await this.privatePostLeverage (this.extend (request, params));
-        // {
-        //     "symbol": "BTC/USDT",
-        //     "longLeverage": 100,
-        //     "shortLeverage": 75
-        // }
+        const response = await this.privatePostLeverage (this.extend (request, params));
+        return this.parseLeverage (response);
+    }
+
+    parseTrades (trades: any[], market: Market = undefined, since: Int = undefined, limit: Int = undefined, params = {}): Trade[] {
+        const result = [];
+        for (let i = 0; i < trades.length; i++) {
+            result.push (this.parseTrade (trades[i], market));
+        }
+        return result;
+    }
+
+    parseFee (fee: Dict): Fee {
+        return {
+            'currency': this.safeString (fee, 'currency'),
+            'cost': this.safeNumber (fee, 'cost'),
+            'rate': this.safeNumber (fee, 'rate'),
+        };
+    }
+
+    parseFeeAndFees (container: Dict) {
+        const fee = this.parseFee (this.safeValue (container, 'fee'));
+        const fees = this.safeValue (container, 'fees', []).map ((feeObject) => this.parseFee (feeObject));
+        return [ fee, fees ];
     }
 
     parseTrade (trade: Dict, market: Market = undefined): Trade {
-        // {
-        //     "id": "12345-67890",
-        //     "timestamp": 1652376800000,
-        //     "symbol": "BTC/USDT",
-        //     "order": "12345-67890",
-        //     "type": "limit",
-        //     "side": "buy",
-        //     "takerOrMaker": "taker",
-        //     "price": 50000.0,
-        //     "amount": 0.1,
-        //     "cost": 5000.0,
-        //     "fee": {
-        //         "cost": 0.0015,
-        //         "currency": "ETH",
-        //         "rate": 0.002
-        //     },
-        //     "fees": [
-        //         {
-        //             "cost": 0.0015,
-        //             "currency": "ETH",
-        //             "rate": 0.002
-        //         }
-        //     ]
-        // }
+        const fees = this.safeValue (trade, 'fees', []).map ((feeObject) => this.parseFee (feeObject));
         const timestamp = this.safeInteger (trade, 'timestamp');
-        market = this.safeMarket (undefined, market);
-        return this.safeTrade ({
+        return {
             'id': this.safeString (trade, 'id'),
-            'symbol': market['symbol'],
+            'info': trade,
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
+            'symbol': market['symbol'],
             'order': this.safeString (trade, 'order'),
             'type': this.safeString (trade, 'type'),
-            'takerOrMaker': this.safeString (trade, 'takerOrMaker'),
             'side': this.safeString (trade, 'side'),
-            'price': this.safeString (trade, 'price'),
-            'amount': this.safeString (trade, 'amount'),
-            'cost': this.safeString (trade, 'cost'),
-            'fee': this.safeDict (trade, 'fee', {}),
-            'fees': this.safeList (trade, 'fees', []),
-        }, market);
+            'takerOrMaker': this.safeString (trade, 'takerOrMaker'),
+            'price': this.safeNumber (trade, 'price'),
+            'amount': this.safeNumber (trade, 'amount'),
+            'cost': this.safeNumber (trade, 'cost'),
+            'fee': fees,
+        };
     }
 
     async fetchTrades (symbol: string, since: Int = undefined, limit: Int = undefined, params = {}): Promise<Trade[]> {
@@ -852,17 +613,14 @@ export default class gains extends Exchange {
          * @method
          * @name gains#fetchTrades
          * @description get the list of most recent trades for a particular symbol
-         * @see TODO add a link to the relevant part of the exchange API documentation
          * @param {string} symbol unified symbol of the market to fetch trades for
          * @param {int} [since] timestamp in ms of the earliest trade to fetch
          * @param {int} [limit] the maximum amount of trades to fetch
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @returns {Trade[]} a list of [trade structures]{@link https://docs.ccxt.com/#/?id=public-trades}
          */
-        await this.loadMarkets ();
-        const market = this.market (symbol);
         const request: Dict = {
-            'symbol': market['id'],
+            'symbol': symbol,
         };
         if (limit !== undefined) {
             request['limit'] = limit;
@@ -871,72 +629,15 @@ export default class gains extends Exchange {
             request['since'] = since;
         }
         const response = await this.publicGetTrades (this.extend (request, params));
-        // [
-        //     {
-        //         "id": "12345-67890",
-        //         "timestamp": 1652376800000,
-        //         "symbol": "BTC/USDT",
-        //         "order": "12345-67890",
-        //         "type": "limit",
-        //         "side": "buy",
-        //         "takerOrMaker": "taker",
-        //         "price": 50000.0,
-        //         "amount": 0.1,
-        //         "cost": 5000.0,
-        //         "fee": {
-        //             "cost": 0.0015,
-        //             "currency": "ETH",
-        //             "rate": 0.002
-        //         },
-        //         "fees": [
-        //             {
-        //                 "cost": 0.0015,
-        //                 "currency": "ETH",
-        //                 "rate": 0.002
-        //             }
-        //         ]
-        //     },
-        //     {
-        //         "id": "12345-67891",
-        //         "timestamp": 1652376801000,
-        //         "symbol": "BTC/USDT",
-        //         "order": "12345-67891",
-        //         "type": "limit",
-        //         "side": "sell",
-        //         "takerOrMaker": "maker",
-        //         "price": 50000.0,
-        //         "amount": 0.1,
-        //         "cost": 5000.0,
-        //         "fee": {
-        //             "cost": 0.0015,
-        //             "currency": "ETH",
-        //             "rate": 0.002
-        //         },
-        //         "fees": [
-        //             {
-        //                 "cost": 0.0015,
-        //                 "currency": "ETH",
-        //                 "rate": 0.002
-        //             }
-        //         ]
-        //     }
-        // ]
-        return this.parseTrades (response, market, since, limit);
+        return this.parseTrades (response);
     }
 
     sign (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
         let endpoint = '/' + this.implodeParams (path, params);
-        const apiUrl = this.urls['api'];
-        let url = this.implodeHostname (apiUrl[api]);
-        headers = (headers !== undefined) ? headers : {};
-        if (api === 'private') {
-            this.checkRequiredCredentials ();
-            // TODO replace TEST_API_KEY_HEADER and TEST_SECRET_KEY_HEADER with actual keys
-            headers['TEST_API_KEY_HEADER'] = this.apiKey;
-            headers['TEST_SECRET_KEY_HEADER'] = this.secret;
-        }
+        let url = this.implodeHostname (this.urls['api'][api]);
+        headers = headers || {};
         const query = this.omit (params, this.extractParams (path));
-        if (Object.keys (query).length) {
+        if (query) {
             if ((method === 'GET') || (method === 'DELETE')) {
                 endpoint += '?' + this.urlencode (query);
             } else {
@@ -952,14 +653,6 @@ export default class gains extends Exchange {
         if (response === undefined) {
             return undefined; // fallback to default error handler
         }
-        //
-        //    {
-        //        "code": 80014,
-        //        "msg": "Invalid parameters, err:Key: 'GetTickerRequest.Symbol' Error:Field validation for "Symbol" failed on the "len=0|endswith=-USDT" tag",
-        //        "data": {
-        //        }
-        //    }
-        //
         const code = this.safeString (response, 'code');
         const message = this.safeString (response, 'msg');
         if (code !== undefined && code !== '0') {
