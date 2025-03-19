@@ -162,6 +162,7 @@ class gains(Exchange, ImplicitAPI):
         return result
 
     def parse_market(self, market: dict) -> Market:
+        precision = self.safe_value(market, 'precision', {})
         return  {
             'id': self.safe_string(market, 'id'),
             'symbol': self.safe_string(market, 'symbol'),
@@ -191,7 +192,11 @@ class gains(Exchange, ImplicitAPI):
             'percentage': self.safe_bool(market, 'percentage', False),
             'tierBased': self.safe_bool(market, 'tierBased', False),
             'feeSide': 'quote',
-            'precision': self.safe_dict(market, 'precision', {'price': None, 'amount': None, 'cost': None}),
+            'precision': {
+                'price': self.safe_integer(precision, 'price'),
+                'amount': self.safe_integer(precision, 'amount'),
+                'cost': self.safe_integer(precision, 'cost')
+            },
             'limits': self.safe_dict(market, 'limits', {}),
             'marginModes': {
                 'cross': False,
