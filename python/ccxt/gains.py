@@ -251,9 +251,9 @@ class gains(Exchange, ImplicitAPI):
             'baseId': self.safe_string(market, 'baseId'),
             'quote': self.safe_string(market, 'quote'),
             'quoteId': self.safe_string(market, 'quoteId'),
-            'active': True,
-            'type': 'spot',
-            'spot': True,
+            'active': self.safe_value(market, 'active', True),
+            'type': self.safe_string(market, 'type'),
+            'spot': self.safe_string(market, 'type') == 'spot',
             'margin': False,
             'future': False,
             'swap': False,
@@ -268,34 +268,13 @@ class gains(Exchange, ImplicitAPI):
             'expiryDatetime': None,
             'strike': None,
             'optionType': None,
-            'taker': None,
-            'maker': None,
-            'percentage': True,
-            'tierBased': False,
+            'taker': self.safe_float(market, 'taker'),
+            'maker': self.safe_float(market, 'maker'),
+            'percentage': self.safe_bool(market, 'percentage', False),
+            'tierBased': self.safe_bool(market, 'tierBased', False),
             'feeSide': 'quote',
-            'precision': {
-                'price': None,
-                'amount': None,
-                'cost': None,
-            },
-            'limits': {
-                'amount': {
-                    'min': None,
-                    'max': None,
-                },
-                'price': {
-                    'min': None,
-                    'max': None,
-                },
-                'cost': {
-                    'min': None,
-                    'max': None,
-                },
-                'leverage': {
-                    'min': None,
-                    'max': None,
-                }
-            },
+            'precision': self.safe_dict(market, 'precision', {'price': None, 'amount': None, 'cost': None}),
+            'limits': self.safe_dict(market, 'limits', {}),
             'marginModes': {
                 'cross': False,
                 'isolated': False,
