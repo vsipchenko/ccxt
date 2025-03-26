@@ -163,6 +163,11 @@ class gains(Exchange, ImplicitAPI):
 
     def parse_market(self, market: dict) -> Market:
         precision = self.safe_value(market, 'precision', {})
+        limits = self.safe_dict(market, 'limits', {})
+        limit_amount = self.safe_dict(limits, 'amount', {})
+        limit_price = self.safe_dict(limits, 'price', {})
+        limit_cost = self.safe_dict(limits, 'cost', {})
+        limit_leverage = self.safe_dict(limits, leverage, {})
         return  {
             'id': self.safe_string(market, 'id'),
             'symbol': self.safe_string(market, 'symbol'),
@@ -197,7 +202,24 @@ class gains(Exchange, ImplicitAPI):
                 'amount': self.safe_integer(precision, 'amount'),
                 'cost': self.safe_integer(precision, 'cost')
             },
-            'limits': self.safe_dict(market, 'limits', {}),
+            'limits': {
+                'amount' : {
+                    'min': self.safe_number(limit_amount, 'min')
+                    'max': self.safe_number(limit_amount, 'max')
+                },
+                'price': {
+                    'min': self.safe_number(limit_price, 'min')
+                    'max': self.safe_number(limit_price, 'max')
+                },
+                'cost': {
+                    'min': self.safe_number(limit_cost, 'min')
+                    'max': self.safe_number(limit_cost, 'max')
+                },
+                'leverage': {
+                    'min': self.safe_number(limit_leverage, 'min')
+                    'max': self.safe_number(limit_leverage, 'max')
+                }
+            },
             'marginModes': {
                 'cross': False,
                 'isolated': False,
@@ -332,22 +354,22 @@ class gains(Exchange, ImplicitAPI):
             'symbol': self.safe_string(ticker, 'symbol'),
             'timestamp': timestamp,
             'datetime': self.iso8601(timestamp),
-            'high': self.safe_string(ticker, 'high'),
-            'low': self.safe_string(ticker, 'low'),
-            'bid': self.safe_string(ticker, 'bid'),
-            'bidVolume': self.safe_string(ticker, 'bid_volume'),
-            'ask': self.safe_string(ticker, 'ask'),
-            'askVolume': self.safe_string(ticker, 'askVolume'),
-            'vwap': self.safe_string(ticker, 'vwap'),
-            'open': self.safe_string(ticker, 'open'),
-            'close': self.safe_string(ticker, 'close'),
-            'last': None,
-            'previousClose': self.safe_string(ticker, 'previousClose'),
-            'change': None,
-            'percentage': None,
-            'average': None,
-            'baseVolume': self.safe_string(ticker, 'baseVolume'),
-            'quoteVolume': self.safe_string(ticker, 'quoteVolume'),
+            'high': self.safe_number(ticker, 'high'),
+            'low': self.safe_number(ticker, 'low'),
+            'bid': self.safe_number(ticker, 'bid'),
+            'bidVolume': self.safe_number(ticker, 'bid_volume'),
+            'ask': self.safe_number(ticker, 'ask'),
+            'askVolume': self.safe_number(ticker, 'askVolume'),
+            'vwap': self.safe_number(ticker, 'vwap'),
+            'open': self.safe_number(ticker, 'open'),
+            'close': self.safe_number(ticker, 'close'),
+            'last': self.safe_number(ticker, 'last'),
+            'previousClose': self.safe_number(ticker, 'previousClose'),
+            'change': self.safe_number(ticker, 'change'),
+            'percentage': self.safe_number(ticker, 'percentage'),
+            'average': self.safe_number(ticker, 'average'),
+            'baseVolume': self.safe_number(ticker, 'baseVolume'),
+            'quoteVolume': self.safe_number(ticker, 'quoteVolume'),
             'info': ticker,
         }
 

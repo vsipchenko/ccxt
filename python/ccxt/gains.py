@@ -245,6 +245,11 @@ class gains(Exchange, ImplicitAPI):
         #     'info':      { ... },     // the original unparsed market info from the exchange
         # }
         precision = self.safe_value(market, 'precision', {})
+        limits = self.safe_dict(market, 'limits', {})
+        limit_amount = self.safe_dict(limits, 'amount', {})
+        limit_price = self.safe_dict(limits, 'price', {})
+        limit_cost = self.safe_dict(limits, 'cost', {})
+        limit_leverage = self.safe_dict(limits, leverage, {})
         return  {
             'id': self.safe_string(market, 'id'),
             'symbol': self.safe_string(market, 'symbol'),
@@ -279,7 +284,24 @@ class gains(Exchange, ImplicitAPI):
                 'amount': self.safe_integer(precision, 'amount'),
                 'cost': self.safe_integer(precision, 'cost')
             },
-            'limits': self.safe_dict(market, 'limits', {}),
+            'limits': {
+                'amount' : {
+                    'min': self.safe_number(limit_amount, 'min')
+                    'max': self.safe_number(limit_amount, 'max')
+                },
+                'price': {
+                    'min': self.safe_number(limit_price, 'min')
+                    'max': self.safe_number(limit_price, 'max')
+                },
+                'cost': {
+                    'min': self.safe_number(limit_cost, 'min')
+                    'max': self.safe_number(limit_cost, 'max')
+                },
+                'leverage': {
+                    'min': self.safe_number(limit_leverage, 'min')
+                    'max': self.safe_number(limit_leverage, 'max')
+                }
+            },
             'marginModes': {
                 'cross': False,
                 'isolated': False,
@@ -739,22 +761,22 @@ class gains(Exchange, ImplicitAPI):
             'symbol': self.safe_string(ticker, 'symbol'),
             'timestamp': timestamp,
             'datetime': self.iso8601(timestamp),
-            'high': self.safe_float(ticker, 'high'),
-            'low': self.safe_float(ticker, 'low'),
-            'bid': self.safe_float(ticker, 'bid'),
-            'bidVolume': self.safe_float(ticker, 'bid_volume'),
-            'ask': self.safe_float(ticker, 'ask'),
-            'askVolume': self.safe_float(ticker, 'askVolume'),
-            'vwap': self.safe_float(ticker, 'vwap'),
-            'open': self.safe_float(ticker, 'open'),
-            'close': self.safe_float(ticker, 'close'),
-            'last': self.safe_float(ticker, 'last'),
-            'previousClose': self.safe_float(ticker, 'previousClose'),
-            'change': self.safe_float(ticker, 'change'),
-            'percentage': self.safe_float(ticker, 'percentage'),
-            'average': self.safe_float(ticker, 'average'),
-            'baseVolume': self.safe_float(ticker, 'baseVolume'),
-            'quoteVolume': self.safe_float(ticker, 'quoteVolume'),
+            'high': self.safe_number(ticker, 'high'),
+            'low': self.safe_number(ticker, 'low'),
+            'bid': self.safe_number(ticker, 'bid'),
+            'bidVolume': self.safe_number(ticker, 'bid_volume'),
+            'ask': self.safe_number(ticker, 'ask'),
+            'askVolume': self.safe_number(ticker, 'askVolume'),
+            'vwap': self.safe_number(ticker, 'vwap'),
+            'open': self.safe_number(ticker, 'open'),
+            'close': self.safe_number(ticker, 'close'),
+            'last': self.safe_number(ticker, 'last'),
+            'previousClose': self.safe_number(ticker, 'previousClose'),
+            'change': self.safe_number(ticker, 'change'),
+            'percentage': self.safe_number(ticker, 'percentage'),
+            'average': self.safe_number(ticker, 'average'),
+            'baseVolume': self.safe_number(ticker, 'baseVolume'),
+            'quoteVolume': self.safe_number(ticker, 'quoteVolume'),
             'info': ticker,
         }
 
@@ -772,17 +794,22 @@ class gains(Exchange, ImplicitAPI):
         response = self.publicGetTicker(self.extend(request, params))
         # {
         #     "symbol": "ETH/USD",
-        #     "timestamp": 1741861260000,
-        #     "high": 1882.657,
-        #     "low": 1882.632,
-        #     "bid": 0,
-        #     "bidVolume": 0,
-        #     "ask": 0,
-        #     "askVolume": 0,
+        #     "timestamp": 1742920560018,
+        #     "datetime": "2025-03-25T16:36:00.018Z",
+        #     "high": 2063.3282,
+        #     "low": 2062.674,
+        #     "bid": 2060.8252119000003,
+        #     "bidVolume": 12.5,
+        #     "ask": 2064.9509881,
+        #     "askVolume": 8.3,
         #     "vwap": 0,
-        #     "open": 1882.632,
-        #     "close": 1882.657,
-        #     "previousClose": 1891.4686,
+        #     "open": 2063.09,
+        #     "close": 2062.8881,
+        #     "last": 2062.8881,
+        #     "previousClose": 2069.7879,
+        #     "change": -0.20190000000002328,
+        #     "percentage": -0.009786291436632589,
+        #     "average": 2062.98905,
         #     "baseVolume": 0,
         #     "quoteVolume": 0
         # }
