@@ -167,7 +167,7 @@ class gains(Exchange, ImplicitAPI):
         limit_amount = self.safe_dict(limits, 'amount', {})
         limit_price = self.safe_dict(limits, 'price', {})
         limit_cost = self.safe_dict(limits, 'cost', {})
-        limit_leverage = self.safe_dict(limits, leverage, {})
+        limit_leverage = self.safe_dict(limits, 'leverage', {})
         return  {
             'id': self.safe_string(market, 'id'),
             'symbol': self.safe_string(market, 'symbol'),
@@ -204,20 +204,20 @@ class gains(Exchange, ImplicitAPI):
             },
             'limits': {
                 'amount' : {
-                    'min': self.safe_number(limit_amount, 'min')
-                    'max': self.safe_number(limit_amount, 'max')
+                    'min': self.safe_number(limit_amount, 'min'),
+                    'max': self.safe_number(limit_amount, 'max'),
                 },
                 'price': {
-                    'min': self.safe_number(limit_price, 'min')
-                    'max': self.safe_number(limit_price, 'max')
+                    'min': self.safe_number(limit_price, 'min'),
+                    'max': self.safe_number(limit_price, 'max'),
                 },
                 'cost': {
-                    'min': self.safe_number(limit_cost, 'min')
-                    'max': self.safe_number(limit_cost, 'max')
+                    'min': self.safe_number(limit_cost, 'min'),
+                    'max': self.safe_number(limit_cost, 'max'),
                 },
                 'leverage': {
-                    'min': self.safe_number(limit_leverage, 'min')
-                    'max': self.safe_number(limit_leverage, 'max')
+                    'min': self.safe_number(limit_leverage, 'min'),
+                    'max': self.safe_number(limit_leverage, 'max'),
                 }
             },
             'marginModes': {
