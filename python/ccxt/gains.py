@@ -300,6 +300,7 @@ class gains(Exchange, ImplicitAPI):
                 'leverage': {
                     'min': self.safe_number(limit_leverage, 'min'),
                     'max': self.safe_number(limit_leverage, 'max'),
+                }
             },
             'marginModes': {
                 'cross': False,
