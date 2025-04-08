@@ -514,8 +514,8 @@ class gains(Exchange, ImplicitAPI):
         }
         if type != 'market':
             raise NotSupported(self.id + ' createOrder() supports market orders only')
-        if side != 'buy':
-            raise NotSupported(self.id + ' createOrder() supports buy orders only')
+        if side != 'buy' and side != 'sell':
+            raise NotSupported(self.id + ' createOrder() side must be buy or sell')
         response = self.privatePostOrder(self.extend(request, params))
         # {
         #     "id": "147",
@@ -1097,6 +1097,10 @@ class gains(Exchange, ImplicitAPI):
         #     }
         # ]
         return self.parse_trades(response, None, since, limit)
+
+    def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
+        # TODO temporary repeat method fetch_trades
+        return self.fetch_trades(symbol, since, limit, params)
 
     def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
         endpoint = '/' + self.implode_params(path, params)
