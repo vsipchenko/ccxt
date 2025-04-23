@@ -429,17 +429,30 @@ class gains(Exchange, ImplicitAPI):
         response = await self.privatePostLeverage(self.extend(request, params))
         return self.parse_leverage(response)
 
-    def parse_fee(self, fee: dict) -> Fee:
-        return {
-            'currency': self.safe_string(fee, 'currency'),
-            'rate': self.safe_number(fee, 'rate'),
-            'cost': self.safe_number(fee, 'cost'),
+    def parse_fee(self, container: dict) -> Fee:
+        # Fee structure
+        # {
+        #     'currency': 'BTC', // the unified fee currency code
+        #     'rate': percentage, // the fee rate, 0.05% = 0.0005, 1% = 0.01, ...
+        #     'cost': feePaid, // the fee cost (amount * fee rate)
+        # }
+
+        fee_cost = sum(float(f['cost']) for f in container['fees']) if 'fees' in container else float(container['fee']['cost'])
+        container_cost = float(container['cost'])
+        fee = {
+            'currency': 'USDC',
+            'rate': fee_cost / container_cost if container_cost else None,
+            'cost': fee_cost if container_cost else None,
         }
+        return fee
 
     def parsed_fee_and_fees(self, container):
-        fee = self.parse_fee(self.safe_dict(container, 'fee'))
-        fees = [self.parse_fee(fee) for fee in self.safe_list(container, 'fees', [])]
-        return fee, fees
+        fee_total = self.parse_fee(container)
+        fees_separate = []
+        for fee in self.safe_list(container, 'fees', []):
+            fee_container = {'cost': container['cost'], 'fee': {'cost': fee['cost']}}
+            fees_separate.append(self.parse_fee(fee_container))
+        return fee_total, fees_separate
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         result = []
