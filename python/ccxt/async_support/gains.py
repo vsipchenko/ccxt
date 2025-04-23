@@ -66,7 +66,7 @@ class gains(Exchange, ImplicitAPI):
                 'fetchPosition': False,
                 'fetchPositionHistory': False,
                 'fetchPositionMode': False,
-                'fetchPositions': False,
+                'fetchPositions': True,
                 'fetchPositionsForSymbol': False,
                 'fetchPositionsHistory': False,
                 'fetchPositionsRisk': False,
@@ -106,8 +106,8 @@ class gains(Exchange, ImplicitAPI):
             'urls': {
                 'logo': 'https://some-logo.jpg',
                 'api': {
-                    'public': 'http://127.0.0.1:8000',
-                    'private': 'http://127.0.0.1:8000',
+                    'public': 'http://localhost:8000',
+                    'private': 'http://localhost:8000',
                 },
                 'www': 'https://gains.com/',
                 'doc': [
@@ -122,13 +122,13 @@ class gains(Exchange, ImplicitAPI):
                         'markets',
                         'ohlcv',
                         'ticker',
-                        'trades',
                     ],
                 },
                 'private': {
                     'get': [
                         'orders',
                         'order',
+                        'trades',
                         'balance',
                         'leverage_tiers',
                     ],
@@ -483,12 +483,54 @@ class gains(Exchange, ImplicitAPI):
             request['limit'] = limit
         if since is not None:
             request['since'] = since
-        response = await self.publicGetTrades(self.extend(request, params))
+        response = await self.privateGetTrades(self.extend(request, params))
         return self.parse_trades(response, None, since, limit)
 
     async def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         # TODO temporary repeat method fetch_trades
         return await self.fetch_trades(symbol, since, limit, params)
+
+
+    async def fetch_positions(self, symbol: Str = None, params={}):
+        request: dict = {}
+        if symbol is not None:
+            request['symbol'] = symbol
+        response = self.privateGetPositions(self.extend(request, params))
+        return self.parse_positions(response)
+
+    def parse_positions(self, positions: List[Any], symbols: List[str] = None, params={}):
+        result = []
+        for i in range(0, len(positions)):
+            result.append(self.parse_position(positions[i]))
+        return result
+
+    def parse_position(self, position: dict, market: Market = None) -> Trade:
+        return {
+            'info': position,
+            'id': self.safe_string(position, 'id'),
+            'symbol': self.safe_string(position, 'symbol'),
+            'timestamp': self.safe_integer(position, 'timestamp'),
+            'datetime': self.safe_string(position, 'datetime'),
+            'isolated': self.safe_value(position, 'isolated'),
+            'hedged': self.safe_value(position, 'hedged'),
+            'side': self.safe_string(position, 'side'),
+            'contracts': self.safe_float(position, 'contracts'),
+            'contractSize': self.safe_float(position, 'contractSize'),
+            'entryPrice': self.safe_float(position, 'entryPrice'),
+            'markPrice': self.safe_float(position, 'markPrice'),
+            'notional': self.safe_float(position, 'notional'),
+            'leverage': self.safe_float(position, 'leverage'),
+            'collateral': self.safe_float(position, 'collateral'),
+            'initialMargin': self.safe_float(position, 'initialMargin'),
+            'maintenanceMargin': self.safe_float(position, 'maintenanceMargin'),
+            'initialMarginPercentage': self.safe_float(position, 'initialMarginPercentage'),
+            'maintenanceMarginPercentage': self.safe_float(position, 'maintenanceMarginPercentage'),
+            'unrealizedPnl': self.safe_float(position, 'unrealizedPnl'),
+            'liquidationPrice': self.safe_float(position, 'liquidationPrice'),
+            'marginMode': self.safe_string(position, 'marginMode'),
+            'percentage': self.safe_float(position, 'percentage'),
+
+        }
 
     def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
         endpoint = '/' + self.implode_params(path, params)

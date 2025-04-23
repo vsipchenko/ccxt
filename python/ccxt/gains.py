@@ -68,7 +68,7 @@ class gains(Exchange, ImplicitAPI):
                 'fetchPosition': False,
                 'fetchPositionHistory': False,
                 'fetchPositionMode': False,
-                'fetchPositions': False,
+                'fetchPositions': True,
                 'fetchPositionsForSymbol': False,
                 'fetchPositionsHistory': False,
                 'fetchPositionsRisk': False,
@@ -127,13 +127,13 @@ class gains(Exchange, ImplicitAPI):
                         'markets',
                         'ohlcv',
                         'ticker',
-                        'trades',
                     ],
                 },
                 'private': {
                     'get': [
                         'orders',
                         'order',
+                        'trades',
                         'balance',
                         'leverage_tiers',
                     ],
@@ -1053,7 +1053,7 @@ class gains(Exchange, ImplicitAPI):
             request['limit'] = limit
         if since is not None:
             request['since'] = since
-        response = self.publicGetTrades(self.extend(request, params))
+        response = self.privateGetTrades(self.extend(request, params))
         # [
         #     {
         #         "id": "12345-67890",
@@ -1109,6 +1109,72 @@ class gains(Exchange, ImplicitAPI):
     def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         # TODO temporary repeat method fetch_trades
         return self.fetch_trades(symbol, since, limit, params)
+
+    def fetch_positions(self, symbol: Str = None, params={}):
+        request: dict = {}
+        if symbol is not None:
+            request['symbol'] = symbol
+        response = self.privateGetPositions(self.extend(request, params))
+        return self.parse_positions(response)
+
+    def parse_positions(self, positions: List[Any], symbols: List[str] = None, params={}):
+        result = []
+        for i in range(0, len(positions)):
+            result.append(self.parse_position(positions[i]))
+        return result
+
+    def parse_position(self, position: dict, market: Market = None) -> Trade:
+        # {
+        #    'info': { ... },             // json response returned from the exchange as is
+        #    'id': '1234323',             // string, position id to reference the position, similar to an order id
+        #    'symbol': 'BTC/USD',         // uppercase string literal of a pair of currencies
+        #    'timestamp': 1607723554607,  // integer unix time since 1st Jan 1970 in milliseconds
+        #    'datetime': '2020-12-11T21:52:34.607Z',  // ISO8601 representation of the unix time above
+        #    'isolated': true,            // boolean, whether or not the position is isolated, as opposed to cross where margin is added automatically
+        #    'hedged': false,             // boolean, whether or not the position is hedged, i.e. if trading in the opposite direction will close this position or make a new one
+        #    'side': 'long',              // string, long or short
+        #    'contracts': 5,              // float, number of contracts bought, aka the amount or size of the position
+        #    'contractSize': 100,         // float, the size of one contract in quote units
+        #    'entryPrice': 20000,         // float, the average entry price of the position
+        #    'markPrice': 20050,          // float, a price that is used for funding calculations
+        #    'notional': 100000,          // float, the value of the position in the settlement currency
+        #    'leverage': 100,             // float, the leverage of the position, related to how many contracts you can buy with a given amount of collateral
+        #    'collateral': 5300,          // float, the maximum amount of collateral that can be lost, affected by pnl
+        #    'initialMargin': 5000,       // float, the amount of collateral that is locked up in this position
+        #    'maintenanceMargin': 1000,   // float, the mininum amount of collateral needed to avoid being liquidated
+        #    'initialMarginPercentage': 0.05,      // float, the initialMargin as a percentage of the notional
+        #    'maintenanceMarginPercentage': 0.01,  // float, the maintenanceMargin as a percentage of the notional
+        #    'unrealizedPnl': 300,        // float, the difference between the market price and the entry price times the number of contracts, can be negative
+        #    'liquidationPrice': 19850,   // float, the price at which collateral becomes less than maintenanceMargin
+        #    'marginMode': 'cross',       // string, can be cross or isolated
+        #    'percentage': 3.32,          // float, represents unrealizedPnl / initialMargin * 100
+        # }
+        return {
+            'info': position,
+            'id': self.safe_string(position, 'id'),
+            'symbol': self.safe_string(position, 'symbol'),
+            'timestamp': self.safe_integer(position, 'timestamp'),
+            'datetime': self.safe_string(position, 'datetime'),
+            'isolated': self.safe_value(position, 'isolated'),
+            'hedged': self.safe_value(position, 'hedged'),
+            'side': self.safe_string(position, 'side'),
+            'contracts': self.safe_float(position, 'contracts'),
+            'contractSize': self.safe_float(position, 'contractSize'),
+            'entryPrice': self.safe_float(position, 'entryPrice'),
+            'markPrice': self.safe_float(position, 'markPrice'),
+            'notional': self.safe_float(position, 'notional'),
+            'leverage': self.safe_float(position, 'leverage'),
+            'collateral': self.safe_float(position, 'collateral'),
+            'initialMargin': self.safe_float(position, 'initialMargin'),
+            'maintenanceMargin': self.safe_float(position, 'maintenanceMargin'),
+            'initialMarginPercentage': self.safe_float(position, 'initialMarginPercentage'),
+            'maintenanceMarginPercentage': self.safe_float(position, 'maintenanceMarginPercentage'),
+            'unrealizedPnl': self.safe_float(position, 'unrealizedPnl'),
+            'liquidationPrice': self.safe_float(position, 'liquidationPrice'),
+            'marginMode': self.safe_string(position, 'marginMode'),
+            'percentage': self.safe_float(position, 'percentage'),
+
+        }
 
     def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
         endpoint = '/' + self.implode_params(path, params)
