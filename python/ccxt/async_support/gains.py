@@ -256,7 +256,7 @@ class gains(Exchange, ImplicitAPI):
             'remaining': self.safe_float(order, 'remaining', None),
             'status': self.safe_string(order, 'status', None),
             'fee': self.parse_fee(order),
-            'trades': self.parse_trades(self.safe_list(order, 'trades', [])),
+            'trades': self.parse_trades([self.safe_dict(order, 'trade')]),
             'info': order,
         }
 
@@ -430,23 +430,17 @@ class gains(Exchange, ImplicitAPI):
         return self.parse_leverage(response)
 
     def parse_fee(self, container: dict) -> Fee:
-        # Fee structure
-        # {
-        #     'currency': 'BTC', // the unified fee currency code
-        #     'rate': percentage, // the fee rate, 0.05% = 0.0005, 1% = 0.01, ...
-        #     'cost': feePaid, // the fee cost (amount * fee rate)
-        # }
         try:
             fee_cost = sum(float(f['cost']) for f in container['fees']) if 'fees' in container else float(container['fee']['cost'])
             container_cost = float(container['cost'])
             fee = {
-                'currency': 'USDC',
+                'currency': 'USD',
                 'rate': fee_cost / container_cost if container_cost else None,
                 'cost': fee_cost if container_cost else None,
             }
             return fee
         except (KeyError, TypeError):
-            return None
+            return {'currency': None, 'rate': None, 'cost': None}
 
     def parsed_fee_and_fees(self, container):
         fee_total = self.parse_fee(container)
@@ -469,7 +463,7 @@ class gains(Exchange, ImplicitAPI):
             'symbol': self.safe_string(trade, 'symbol'),
             'timestamp': self.safe_integer(trade, 'timestamp'),
             'datetime': self.safe_string(trade, 'datetime'),
-            'order': self.safe_string(trade, 'order'),
+            'order': self.safe_string(trade, 'closeOrderId') or self.safe_string(trade, 'openOrderId'),
             'type': self.safe_string(trade, 'type'),
             'takerOrMaker': self.safe_string(trade, 'takerOrMaker'),
             'side': self.safe_string(trade, 'side'),
