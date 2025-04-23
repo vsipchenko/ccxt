@@ -268,7 +268,7 @@ class gains(Exchange, ImplicitAPI):
             'settle': None,
             'settleId': None,
             'contractSize': None,
-            'linear': None,
+            'linear': True,
             'inverse': None,
             'expiry': None,
             'expiryDatetime': None,
