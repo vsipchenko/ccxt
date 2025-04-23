@@ -402,9 +402,9 @@ class gains(Exchange, ImplicitAPI):
         return results
 
     async def fetch_leverage_tiers(self, symbols: Strings = None, params={}) -> LeverageTiers:
-        request: dict = {
-            'symbols': symbols,
-        }
+        request: dict = {}
+        if symbols is not None:
+            request['symbols'] = symbols
         response = await self.privateGetLeverageTiers(self.extend(request, params))
         return self.parse_leverage_tiers(response)
 
@@ -436,15 +436,17 @@ class gains(Exchange, ImplicitAPI):
         #     'rate': percentage, // the fee rate, 0.05% = 0.0005, 1% = 0.01, ...
         #     'cost': feePaid, // the fee cost (amount * fee rate)
         # }
-
-        fee_cost = sum(float(f['cost']) for f in container['fees']) if 'fees' in container else float(container['fee']['cost'])
-        container_cost = float(container['cost'])
-        fee = {
-            'currency': 'USDC',
-            'rate': fee_cost / container_cost if container_cost else None,
-            'cost': fee_cost if container_cost else None,
-        }
-        return fee
+        try:
+            fee_cost = sum(float(f['cost']) for f in container['fees']) if 'fees' in container else float(container['fee']['cost'])
+            container_cost = float(container['cost'])
+            fee = {
+                'currency': 'USDC',
+                'rate': fee_cost / container_cost if container_cost else None,
+                'cost': fee_cost if container_cost else None,
+            }
+            return fee
+        except (KeyError, TypeError):
+            return None
 
     def parsed_fee_and_fees(self, container):
         fee_total = self.parse_fee(container)

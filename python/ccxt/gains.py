@@ -868,9 +868,9 @@ class gains(Exchange, ImplicitAPI):
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :returns dict: a dictionary of `leverage tiers structures <https://docs.ccxt.com/#/?id=leverage-tiers-structure>`, indexed by market symbols
         """
-        request: dict = {
-            'symbols': symbols,
-        }
+        request: dict = {}
+        if symbols is not None:
+            request['symbols'] = symbols
         response = self.privateGetLeverageTiers(self.extend(request, params))
         # {
         #     "ETH/USD": [
@@ -937,15 +937,17 @@ class gains(Exchange, ImplicitAPI):
         #     'rate': percentage, // the fee rate, 0.05% = 0.0005, 1% = 0.01, ...
         #     'cost': feePaid, // the fee cost (amount * fee rate)
         # }
-
-        fee_cost = sum(float(f['cost']) for f in container['fees']) if 'fees' in container else float(container['fee']['cost'])
-        container_cost = float(container['cost'])
-        fee = {
-            'currency': 'USDC',
-            'rate': fee_cost / container_cost if container_cost else None,
-            'cost': fee_cost if container_cost else None,
-        }
-        return fee
+        try:
+            fee_cost = sum(float(f['cost']) for f in container['fees']) if 'fees' in container else float(container['fee']['cost'])
+            container_cost = float(container['cost'])
+            fee = {
+                'currency': 'USDC',
+                'rate': fee_cost / container_cost if container_cost else None,
+                'cost': fee_cost if container_cost else None,
+            }
+            return fee
+        except (KeyError, TypeError):
+            return None
 
     def parsed_fee_and_fees(self, container):
         fee_total = self.parse_fee(container)
