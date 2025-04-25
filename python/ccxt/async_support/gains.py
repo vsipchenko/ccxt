@@ -2,7 +2,8 @@
 
 from ccxt.async_support.base.exchange import Exchange
 from ccxt.abstract.gains import ImplicitAPI
-from ccxt.base.types import Bool, Int, LeverageTier, LeverageTiers, Market, Num, Order, OrderSide, OrderType, Str, Strings, Ticker, Trade, Fee
+from ccxt.base.types import Bool, Int, LeverageTier, LeverageTiers, Market, Num, Order, OrderSide, OrderType, Str, \
+    Strings, Ticker, Trade, Fee, FundingHistory, Position
 from typing import List, Any
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import ArgumentsRequired
@@ -44,7 +45,7 @@ class gains(Exchange, ImplicitAPI):
                 'fetchCurrencies': False,
                 'fetchDepositAddress': False,
                 'fetchDeposits': False,
-                'fetchFundingHistory': False,
+                'fetchFundingHistory': True,
                 'fetchFundingRate': False,
                 'fetchFundingRateHistory': False,
                 'fetchFundingRates': False,
@@ -129,6 +130,8 @@ class gains(Exchange, ImplicitAPI):
                         'orders',
                         'order',
                         'trades',
+                        'positions',
+                        'funding_history',
                         'balance',
                         'leverage_tiers',
                     ],
@@ -491,20 +494,20 @@ class gains(Exchange, ImplicitAPI):
         return await self.fetch_trades(symbol, since, limit, params)
 
 
-    async def fetch_positions(self, symbol: Str = None, params={}):
+    async def fetch_positions(self, symbol: Str = None, params={}) -> List[Position]:
         request: dict = {}
         if symbol is not None:
             request['symbol'] = symbol
         response = self.privateGetPositions(self.extend(request, params))
         return self.parse_positions(response)
 
-    def parse_positions(self, positions: List[Any], symbols: List[str] = None, params={}):
+    def parse_positions(self, positions: List[Any], symbols: List[str] = None, params={}) -> List[Position]:
         result = []
         for i in range(0, len(positions)):
             result.append(self.parse_position(positions[i]))
         return result
 
-    def parse_position(self, position: dict, market: Market = None) -> Trade:
+    def parse_position(self, position: dict, market: Market = None) -> Position:
         return {
             'info': position,
             'id': self.safe_string(position, 'id'),
@@ -531,6 +534,33 @@ class gains(Exchange, ImplicitAPI):
             'percentage': self.safe_float(position, 'percentage'),
 
         }
+
+    async def fetch_funding_history(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[FundingHistory]:
+        request: dict = {}
+        if limit is not None:
+            request['limit'] = limit
+        if since is not None:
+            request['since'] = since
+        response = self.privateGetFundingHistory(self.extend(request, params))
+        return self.parse_funding_histories(response)
+
+    def parse_funding_histories(self, response) -> List[FundingHistory]:
+        result = []
+        for i in range(0, len(response)):
+            result.append(self.parse_funding_history(response[i]))
+        return result
+
+    def parse_funding_history(self, funding: dict) -> FundingHistory:
+        return {
+            'symbol': self.safe_string(funding, 'symbol'),
+            'code': self.safe_string(funding, 'code'),
+            'timestamp': self.safe_integer(funding, 'timestamp'),
+            'datetime': self.safe_string(funding, 'datetime'),
+            'id': self.safe_string(funding, 'id'),
+            'amount': self.safe_float(funding, 'amount'),
+            'info': funding,
+        }
+
 
     def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
         endpoint = '/' + self.implode_params(path, params)
