@@ -6,7 +6,7 @@ from ccxt import NotSupported
 from ccxt.base.exchange import Exchange
 from ccxt.abstract.gains import ImplicitAPI
 from ccxt.base.types import Bool, Int, LeverageTier, LeverageTiers, Market, Num, Order, OrderSide, OrderType, Str, \
-    Strings, Ticker, Trade, Fee, FundingHistory, Position
+    Strings, Ticker, Trade, Fee, FundingHistory, Position, Balances
 from typing import List, Any
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import ArgumentsRequired
@@ -596,33 +596,22 @@ class gains(Exchange, ImplicitAPI):
         # }
         return self.parse_order(response)
 
-    def parse_balance(self, balance) -> dict:
-        # Balance structure:
-        # {
-        #     'info':  { ... },                       // the original untouched non-parsed reply with details
-        #     'timestamp': 1499280391811,             // Unix Timestamp in milliseconds (seconds * 1000)
-        #     'datetime': '2017-07-05T18:47:14.692Z', // ISO8601 datetime string with milliseconds
-        #     'free':  {                              // money, available for trading, by currency
-        #         'BTC': 321.00,                      // floats...
-        #         'USD': 123.00,
-        #         ...
-        #     },
-        #     'used':  { ... },                       // money on hold, locked, frozen, or pending, by currency
-        #     'total': { ... },                       // total (free + used), by currency
-        #     'debt': { ... },                        // debt, by currency
-        # }
-        #
-        timestamp = self.safe_integer(balance, 'timestamp')
-        # TODO try to use self.safe_balance
-        return {
-            'info': balance,
-            'timestamp': self.safe_integer(balance, 'timestamp'),
-            'datetime': self.iso8601(timestamp),
-            'free': self.safe_dict(balance, 'free', {}),
-            'used': self.safe_dict(balance, 'used', {}),
-            'total': self.safe_dict(balance, 'total', {}),
-            'debt': self.safe_dict(balance, 'debt', {}),
-        }
+    def parse_balance(self, response) -> Balances:
+        result = {}
+        balances = self.safe_value(response, 'balance', {})
+
+        for currency in balances:
+            result[currency] = {
+                'free': self.safe_number(balances[currency], 'free'),
+                'used': self.safe_number(balances[currency], 'used'),
+                'total': self.safe_number(balances[currency], 'total'),
+                'debt': self.safe_number(balances[currency], 'debt', 0),
+            }
+
+        result['timestamp'] = self.safe_integer(response, 'timestamp')
+        result['datetime'] = self.safe_string(response, 'datetime')
+
+        return result
 
     def fetch_balance(self, params={}) -> dict:
         """
@@ -632,34 +621,6 @@ class gains(Exchange, ImplicitAPI):
         :returns dict: a `balance structure <https://docs.ccxt.com/#/?id=balance-structure>`
         """
         response = self.privateGetBalance(params)
-        # {
-        #     "timestamp": 1741799738711,
-        #     "free": {
-        #         "GNS_DAI": 10000,
-        #         "WETH": 0,
-        #         "GNS_USDC": 39442.730502,
-        #         "GNS": 0,
-        #         "gas": 0.38594655468021
-        #     },
-        #     "used": {
-        #         "GNS_USDC": 0,
-        #         "GNS_DAI": 0,
-        #         "WETH": 0,
-        #         "GNS": 0
-        #     },
-        #     "total": {
-        #         "GNS_DAI": 10000,
-        #         "WETH": 0,
-        #         "GNS_USDC": 39442.730502,
-        #         "GNS": 0
-        #     },
-        #     "debt": {
-        #         "GNS_DAI": 0,
-        #         "WETH": 0,
-        #         "GNS_USDC": 0,
-        #         "GNS": 0
-        #     }
-        # }
         return self.parse_balance(response)
 
     def parse_ohlcvs(self, ohlcvs: List[object], market: Any = None, timeframe: str = '1m', since: Int = None, limit: Int = None, tail: Bool = False):

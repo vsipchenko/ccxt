@@ -3,7 +3,7 @@
 from ccxt.async_support.base.exchange import Exchange
 from ccxt.abstract.gains import ImplicitAPI
 from ccxt.base.types import Bool, Int, LeverageTier, LeverageTiers, Market, Num, Order, OrderSide, OrderType, Str, \
-    Strings, Ticker, Trade, Fee, FundingHistory, Position
+    Strings, Ticker, Trade, Fee, FundingHistory, Position, Balances
 from typing import List, Any
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import ArgumentsRequired
@@ -305,17 +305,22 @@ class gains(Exchange, ImplicitAPI):
         response = await self.privateDeleteOrder(self.extend(request, params))
         return self.parse_order(response)
 
-    def parse_balance(self, balance) -> dict:
-        timestamp = self.safe_integer(balance, 'timestamp')
-        return {
-            'info': balance,
-            'timestamp': self.safe_integer(balance, 'timestamp'),
-            'datetime': self.iso8601(timestamp),
-            'free': self.safe_dict(balance, 'free', {}),
-            'used': self.safe_dict(balance, 'used', {}),
-            'total': self.safe_dict(balance, 'total', {}),
-            'debt': self.safe_dict(balance, 'debt', {}),
-        }
+    def parse_balance(self, response) -> Balances:
+        result = {}
+        balances = self.safe_value(response, 'balance', {})
+
+        for currency in balances:
+            result[currency] = {
+                'free': self.safe_number(balances[currency], 'free'),
+                'used': self.safe_number(balances[currency], 'used'),
+                'total': self.safe_number(balances[currency], 'total'),
+                'debt': self.safe_number(balances[currency], 'debt', 0),
+            }
+
+        result['timestamp'] = self.safe_integer(response, 'timestamp')
+        result['datetime'] = self.safe_string(response, 'datetime')
+
+        return result
 
     async def fetch_balance(self, params={}) -> dict:
         response = await self.privateGetBalance(params)
