@@ -1075,8 +1075,10 @@ class gains(Exchange, ImplicitAPI):
         # TODO temporary repeat method fetch_trades
         return self.fetch_trades(symbol, since, limit, params)
 
-    def fetch_positions(self, symbol: Str = None, params={}) -> List[Position]:
+    def fetch_positions(self, symbols: Strings = None, params={}) -> List[Position]:
         request: dict = {}
+        # TODO move this logic into adapter
+        symbol = symbols[0] if isinstance(symbols, list) else symbols
         if symbol is not None:
             request['symbol'] = symbol
         response = self.privateGetPositions(self.extend(request, params))

@@ -499,8 +499,10 @@ class gains(Exchange, ImplicitAPI):
         return await self.fetch_trades(symbol, since, limit, params)
 
 
-    async def fetch_positions(self, symbol: Str = None, params={}) -> List[Position]:
+    def fetch_positions(self, symbols: Strings = None, params={}) -> List[Position]:
         request: dict = {}
+        # TODO move this logic into adapter
+        symbol = symbols[0] if isinstance(symbols, list) else symbols
         if symbol is not None:
             request['symbol'] = symbol
         response = self.privateGetPositions(self.extend(request, params))
@@ -537,7 +539,6 @@ class gains(Exchange, ImplicitAPI):
             'liquidationPrice': self.safe_float(position, 'liquidationPrice'),
             'marginMode': self.safe_string(position, 'marginMode'),
             'percentage': self.safe_float(position, 'percentage'),
-
         }
 
     async def fetch_funding_history(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[FundingHistory]:
