@@ -284,13 +284,12 @@ class gains(Exchange, ImplicitAPI):
         response = await self.privateGetOrders(self.extend(request, params))
         return self.parse_orders(response)
 
-    async def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, reduceOnly: bool = False, params={}) -> Order:
+    async def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={}) -> Order:
         request: dict = {
             'pair': symbol,
             'type': type,
             'side': side,
             'amount': amount,
-            'reduceOnly': reduceOnly
         }
         if type != 'market':
             raise NotSupported(self.id + ' createOrder() supports market orders only')

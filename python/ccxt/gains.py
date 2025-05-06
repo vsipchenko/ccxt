@@ -496,7 +496,7 @@ class gains(Exchange, ImplicitAPI):
         # ]
         return self.parse_orders(response)
 
-    def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, reduceOnly: bool = False, params={}) -> Order:
+    def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={}) -> Order:
         """
         create a trade order
         :see: TODO add a link to the relevant part of the exchange API documentation
@@ -514,7 +514,6 @@ class gains(Exchange, ImplicitAPI):
             'type': type,
             'side': side,
             'amount': amount,
-            'reduceOnly': reduceOnly
         }
         if type != 'market':
             raise NotSupported(self.id + ' createOrder() supports market orders only')
