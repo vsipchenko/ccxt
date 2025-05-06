@@ -514,7 +514,7 @@ class gains(Exchange, ImplicitAPI):
             'type': type,
             'side': side,
             'amount': amount,
-            'reduceOnly': False
+            'reduceOnly': reduceOnly
         }
         if type != 'market':
             raise NotSupported(self.id + ' createOrder() supports market orders only')
