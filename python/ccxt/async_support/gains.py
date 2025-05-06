@@ -501,9 +501,9 @@ class gains(Exchange, ImplicitAPI):
 
     def fetch_positions(self, symbols: Strings = None, params={}) -> List[Position]:
         request: dict = {}
-        # TODO move this logic into adapter
-        symbol = symbols[0] if isinstance(symbols, list) else symbols
-        if symbol is not None:
+        if symbols:
+            # TODO move this logic into adapter
+            symbol = symbols[0] if isinstance(symbols, list) else symbols
             request['symbol'] = symbol
         response = self.privateGetPositions(self.extend(request, params))
         return self.parse_positions(response)
