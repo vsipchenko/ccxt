@@ -136,7 +136,6 @@ class gains(Exchange, ImplicitAPI):
                         'order',
                         'trades',
                         'positions',
-                        'funding_history',
                         'balance',
                         'leverage_tiers',
                     ],
@@ -347,6 +346,8 @@ class gains(Exchange, ImplicitAPI):
         # }
         timestamp: Int = self.safe_integer(order, 'timestamp', None)
         # TODO try to use self.safe_order
+
+        order_is_open = self.safe_value(order, 'isOpen', None)
         return {
             'id': self.safe_string(order, 'id'),
             'clientOrderId': self.safe_string(order, 'clientOrderId', None),
@@ -361,6 +362,9 @@ class gains(Exchange, ImplicitAPI):
             'side': self.safe_string(order, 'side', None),
             'price': self.safe_float(order, 'price', None),
             'stopPrice': None,
+            'stopLossPrice': None,
+            'takeProfitPrice': None,
+            'reduceOnly': not order_is_open if order_is_open is not None else None,
             'amount': self.safe_float(order, 'amount', None),
             'cost': self.safe_float(order, 'cost', None),
             'average': self.safe_float(order, 'average', None),
@@ -901,25 +905,16 @@ class gains(Exchange, ImplicitAPI):
         #     'rate': percentage, // the fee rate, 0.05% = 0.0005, 1% = 0.01, ...
         #     'cost': feePaid, // the fee cost (amount * fee rate)
         # }
-        try:
-            fee_cost = sum(float(f['cost']) for f in container['fees']) if 'fees' in container else float(container['fee']['cost'])
-            container_cost = float(container['cost'])
-            fee = {
-                'currency': 'USD',
-                'rate': fee_cost / container_cost if container_cost else None,
-                'cost': fee_cost if container_cost else None,
-            }
-            return fee
-        except (KeyError, TypeError):
+        fees = self.safe_list(container, 'fees', [])
+        if not fees:
             return {'currency': None, 'rate': None, 'cost': None}
-
-    def parsed_fee_and_fees(self, container):
-        fee_total = self.parse_fee(container)
-        fees_separate = []
-        for fee in self.safe_list(container, 'fees', []):
-            fee_container = {'cost': container['cost'], 'fee': {'cost': fee['cost']}}
-            fees_separate.append(self.parse_fee(fee_container))
-        return fee_total, fees_separate
+        fee = fees[0]
+        return {
+            # 'currency': self.safe_string(fee, 'currency'),
+            'currency': 'USD',
+            'rate': self.safe_number(fee, 'rate'),
+            'cost': self.safe_number(fee, 'cost'),
+        }
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         result = []
@@ -972,17 +967,9 @@ class gains(Exchange, ImplicitAPI):
         #         "cost": 0.0015,
         #         "currency": "ETH",
         #         "rate": 0.002
-        #     },
-        #     "fees": [
-        #         {
-        #             "cost": 0.0015,
-        #             "currency": "ETH",
-        #             "rate": 0.002
-        #         }
-        #     ]
+        #     }
         # }
         # TODO try to use self.safe_trade
-        fee, fees = self.parsed_fee_and_fees(trade)
         return {
             'id': self.safe_string(trade, 'id'),
             'symbol': self.safe_string(trade, 'symbol'),
@@ -995,8 +982,7 @@ class gains(Exchange, ImplicitAPI):
             'price': self.safe_float(trade, 'price'),
             'amount': self.safe_float(trade, 'amount'),
             'cost': self.safe_float(trade, 'cost'),
-            'fee': fee,
-            'fees': fees,
+            'fee': self.parse_fee(trade),
             'info': trade,
         }
 
@@ -1143,39 +1129,8 @@ class gains(Exchange, ImplicitAPI):
         }
 
     def fetch_funding_history(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[FundingHistory]:
-        request: dict = {}
-        if limit is not None:
-            request['limit'] = limit
-        if since is not None:
-            request['since'] = since
-        response = self.privateGetFundingHistory(self.extend(request, params))
-        return self.parse_funding_histories(response)
-
-    def parse_funding_histories(self, response) -> List[FundingHistory]:
-        result = []
-        for i in range(0, len(response)):
-            result.append(self.parse_funding_history(response[i]))
-        return result
-
-    def parse_funding_history(self, funding: dict) -> FundingHistory:
-        # {
-        #     info: {...},
-        #     symbol: "XRP/USDT:USDT",
-        #     code: "USDT",
-        #     timestamp: 1646954920000,
-        #     datetime: "2022-03-08T16:00:00.000Z",
-        #     id: "1520286109858180",
-        #     amount: -0.027722
-        # }
-        return {
-            'symbol': self.safe_string(funding, 'symbol'),
-            'code': self.safe_string(funding, 'code'),
-            'timestamp': self.safe_integer(funding, 'timestamp'),
-            'datetime': self.safe_string(funding, 'datetime'),
-            'id': self.safe_string(funding, 'id'),
-            'amount': self.safe_float(funding, 'amount'),
-            'info': funding,
-        }
+        # TODO remove it in the future
+        return []
 
     def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
         endpoint = '/' + self.implode_params(path, params)
