@@ -238,6 +238,7 @@ class gains(Exchange, ImplicitAPI):
     def parse_order(self, order: dict, market: Market = None) -> Order:
         timestamp: Int = self.safe_integer(order, 'timestamp', None)
         order_is_open = self.safe_value(order, 'isOpen', None)
+        fee, fees = self.parsed_fee_and_fees(order)
         return {
             'id': self.safe_string(order, 'id'),
             'clientOrderId': self.safe_string(order, 'clientOrderId', None),
@@ -261,7 +262,8 @@ class gains(Exchange, ImplicitAPI):
             'filled': self.safe_float(order, 'filled', None),
             'remaining': self.safe_float(order, 'remaining', None),
             'status': self.safe_string(order, 'status', None),
-            'fee': self.parse_fee(order),
+            'fee': fee,
+            'fees': fees,
             'trades': self.parse_trades([self.safe_dict(order, 'trade')]),
             'info': order,
         }
@@ -440,23 +442,30 @@ class gains(Exchange, ImplicitAPI):
         response = await self.privatePostLeverage(self.extend(request, params))
         return self.parse_leverage(response)
 
-    def parse_fee(self, container: dict) -> Fee:
-        # Fee structure
-        # {
-        #     'currency': 'BTC', // the unified fee currency code
-        #     'rate': percentage, // the fee rate, 0.05% = 0.0005, 1% = 0.01, ...
-        #     'cost': feePaid, // the fee cost (amount * fee rate)
-        # }
-        fees = self.safe_list(container, 'fees', [])
-        if not fees:
-            return {'currency': None, 'rate': None, 'cost': None}
-        fee = fees[0]
+    def parse_fee(self, container: dict):
+        if not container:
+            return {'currency': 'USD', 'rate': 0, 'cost': 0}
+
         return {
-            # 'currency': self.safe_string(fee, 'currency'),
             'currency': 'USD',
-            'rate': self.safe_number(fee, 'rate'),
-            'cost': self.safe_number(fee, 'cost'),
+            'rate': self.safe_number(container, 'rate', 0),
+            'cost': self.safe_number(container, 'cost', 0)
         }
+
+    def parsed_fee_and_fees(self, container):
+        fees_list = container.get('fees', None)
+        fee = {'currency': 'USD', 'rate': 0, 'cost': 0}
+        fees = []
+        if not fees_list:
+            return fee, [fee]
+
+        for f in fees_list:
+            parsed = self.parse_fee(f)
+            fee['rate'] += parsed['rate']
+            fee['cost'] += parsed['cost']
+            fees.append(parsed)
+
+        return fee, fees
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         result = []
@@ -465,6 +474,7 @@ class gains(Exchange, ImplicitAPI):
         return result
 
     def parse_trade(self, trade: dict, market: Market = None) -> Trade:
+        fee, fees = self.parsed_fee_and_fees(trade)
         return {
             'id': self.safe_string(trade, 'id'),
             'symbol': self.safe_string(trade, 'symbol'),
@@ -477,7 +487,8 @@ class gains(Exchange, ImplicitAPI):
             'price': self.safe_string(trade, 'price'),
             'amount': self.safe_string(trade, 'amount'),
             'cost': self.safe_string(trade, 'cost'),
-            'fee': self.parse_fee(trade),
+            'fee': fee,
+            'fees': fees,
             'info': trade,
         }
 
