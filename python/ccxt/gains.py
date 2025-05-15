@@ -911,7 +911,7 @@ class gains(Exchange, ImplicitAPI):
         }
 
     def parsed_fee_and_fees(self, container):
-        fees_list = container.get('fees', None)
+        fees_list = self.safe_list(container, 'fees', [])
         fee = {'currency': 'USD', 'rate': 0, 'cost': 0}
         fees = []
         if not fees_list:
