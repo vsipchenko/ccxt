@@ -1136,7 +1136,6 @@ class gains(Exchange, ImplicitAPI):
             'liquidationPrice': self.safe_float(position, 'liquidationPrice'),
             'marginMode': self.safe_string(position, 'marginMode'),
             'percentage': self.safe_float(position, 'percentage'),
-
         }
 
     def fetch_funding_history(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[FundingHistory]:
