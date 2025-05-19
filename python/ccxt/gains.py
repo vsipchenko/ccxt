@@ -282,9 +282,9 @@ class gains(Exchange, ImplicitAPI):
             'tierBased': self.safe_bool(market, 'tierBased', False),
             'feeSide': 'quote',
             'precision': {
-                'price': self.safe_integer(precision, 'price'),
-                'amount': self.safe_integer(precision, 'amount'),
-                'cost': self.safe_integer(precision, 'cost')
+                'price': self.safe_number(precision, 'price'),
+                'amount': self.safe_number(precision, 'amount'),
+                'cost': self.safe_number(precision, 'cost')
             },
             'limits': {
                 'amount' : {
