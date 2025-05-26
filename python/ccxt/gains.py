@@ -6,8 +6,8 @@ from ccxt import NotSupported
 from ccxt.base.exchange import Exchange
 from ccxt.abstract.gains import ImplicitAPI
 from ccxt.base.types import Bool, Int, LeverageTier, LeverageTiers, Market, Num, Order, OrderSide, OrderType, Str, \
-    Strings, Ticker, Trade, Fee, FundingHistory, Position, Balances
-from typing import List, Any
+    Strings, Ticker, Trade, FundingHistory, Position, Balances, FeeInterface
+from typing import List, Any, Optional
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import ArgumentsRequired
 from ccxt.base.decimal_to_precision import TICK_SIZE
@@ -92,36 +92,30 @@ class gains(Exchange, ImplicitAPI):
                 'withdraw': False,
                 'ws': False,
             },
-            # TODO: update self with real timeframes provided by gains if needed
             'timeframes': {
-                '1m': 1,
-                '5m': 5,
-                '10m': 10,
-                '30m': 10,
-                '1h': 60,
-                '2h': 120,
-                '4h': 240,
-                '8h': 480,
-                '12h': 720,
-                '1d': 24,
-                '1w': 70,
-                '1M': 31,
+              '1m': 1,
+              '5m': 5,
+              '10m': 10,
+              '15m': 15,
+              '30m': 30,
+              '45m': 45,
+              '1h': 60,
+              '4h': 240,
+              '8h': 480,
+              '12h': 720,
+              '1d': 1440,
+              '1w': 1440,
+              '1M': 40320,
             },
-            # TODO: update self with real URLs provided by gains
+            # TODO: remove api from here and setup it through config
             'urls': {
-                'logo': 'https://some-logo.jpg',
                 'api': {
                     'public': 'http://localhost:8000',
                     'private': 'http://localhost:8000',
                 },
-                'www': 'https://gains.com/',
-                'doc': [
-                    'https://gains.com/gains-offical-api-docs',
-                ],
-                'fees': 'https://gains.com/fees',
+                'www': 'https://gains.trade/',
+                'doc': 'https://gains-network.gitbook.io/docs-home',
             },
-            # TODO: update self with real credentials keys provided by gains
-            'requiredCredentials': {},
             'api': {
                 'public': {
                     'get': [
@@ -148,16 +142,7 @@ class gains(Exchange, ImplicitAPI):
                     ],
                 },
             },
-            # TODO: update self with real fees provided by gains
-            'fees': {
-            },
-            'options': {
-            },
             'precisionMode': TICK_SIZE,
-            # TODO: update self with real exceptions provided by gains
-            'exceptions': {},
-            'commonCurrencies': {
-            },
         })
 
     def fetch_markets(self, params={}) -> List[Market]:
@@ -168,24 +153,6 @@ class gains(Exchange, ImplicitAPI):
         :returns dict[]: an array of objects representing market data
         """
         response = self.publicGetMarkets(params)
-        # [
-        #     {
-        #         "id": "BTC/USDT",
-        #         "symbol": "BTC/USDT",
-        #         "base": "BTC",
-        #         "quote": "USDT",
-        #         "baseId": "btc",
-        #         "quoteId": "usdt"
-        #     },
-        #     {
-        #         "id": "ETH/USDT",
-        #         "symbol": "ETH/USDT",
-        #         "base": "ETH",
-        #         "quote": "USDT",
-        #         "baseId": "eth",
-        #         "quoteId": "usdt"
-        #     }
-        # ]
         return self.parse_markets(response)
 
     def parse_markets(self, markets: list) -> List[Market]:
@@ -195,57 +162,6 @@ class gains(Exchange, ImplicitAPI):
         return result
 
     def parse_market(self, market: dict) -> Market:
-        # Market structure
-        # {
-        #     'id':      'btcusd',      // string literal for referencing within an exchange
-        #     'symbol':  'BTC/USD',     // uppercase string literal of a pair of currencies
-        #     'base':    'BTC',         // uppercase string, unified base currency code, 3 or more letters
-        #     'quote':   'USD',         // uppercase string, unified quote currency code, 3 or more letters
-        #     'baseId':  'btc',         // any string, exchange-specific base currency id
-        #     'quoteId': 'usd',         // any string, exchange-specific quote currency id
-        #     'active':   true,         // boolean, market status
-        #     'type':    'spot',        // spot for spot, future for expiry futures, swap for perpetual swaps, 'option' for options
-        #     'spot':     true,         // whether the market is a spot market
-        #     'margin':   true,         // whether the market is a margin market
-        #     'future':   false,        // whether the market is a expiring future
-        #     'swap':     false,        // whether the market is a perpetual swap
-        #     'option':   false,        // whether the market is an option contract
-        #     'contract': false,        // whether the market is a future, a perpetual swap, or an option
-        #     'settle':   'USDT',       // the unified currency code that the contract will settle in, only set if `contract` is true
-        #     'settleId': 'usdt',       // the currencyId of that the contract will settle in, only set if `contract` is true
-        #     'contractSize': 1,        // the size of one contract, only used if `contract` is true
-        #     'linear':   true,         // the contract is a linear contract (settled in quote currency)
-        #     'inverse':  false,        // the contract is an inverse contract (settled in base currency)
-        #     'expiry':  1641370465121, // the unix expiry timestamp in milliseconds, undefined for everything except market['type'] `future`
-        #     'expiryDatetime': '2022-03-26T00:00:00.000Z', // The datetime contract will in iso8601 format
-        #     'strike': 4000,           // price at which a put or call option can be exercised
-        #     'optionType': 'call',     // call or put string, call option represents an option with the right to buy and put an option with the right to sell
-        #     // note, 'taker' and 'maker' compose extended data for markets, however it might be better to use `fetchTradingFees` for more accuracy
-        #     'taker':    0.002,        // taker fee rate, 0.002 = 0.2%
-        #     'maker':    0.0016,       // maker fee rate, 0.0016 = 0.16%
-        #     'percentage': true,       // whether the taker and maker fee rate is a multiplier or a fixed flat amount
-        #     'tierBased': false,       // whether the fee depends on your trading tier (your trading volume)
-        #     'feeSide': 'get',         // string literal can be 'get', 'give', 'base', 'quote', 'other'
-        #     'precision': {            // number of decimal digits "after the dot"
-        #         'price': 8,           // integer or float for TICK_SIZE roundingMode, might be missing if not supplied by the exchange
-        #         'amount': 8,          // integer, might be missing if not supplied by the exchange
-        #         'cost': 8,            // integer, very few exchanges actually have it
-        #     },
-        #     'limits': {               // value limits when placing orders on this market
-        #         'amount': {
-        #             'min': 0.01,      // order amount should be > min
-        #             'max': 1000,      // order amount should be < max
-        #         },
-        #         'price': { ... },     // same min/max limits for the price of the order
-        #         'cost':  { ... },     // same limits for order cost = price * amount
-        #         'leverage': { ... },  // same min/max limits for the leverage of the order
-        #     },
-        #     'marginModes': {
-        #         'cross': false,       // whether pair supports cross-margin trading
-        #         'isolated': false,    // whether pair supports isolated-margin trading
-        #     },
-        #     'info':      { ... },     // the original unparsed market info from the exchange
-        # }
         precision = self.safe_value(market, 'precision', {})
         limits = self.safe_dict(market, 'limits', {})
         limit_amount = self.safe_dict(limits, 'amount', {})
@@ -267,8 +183,8 @@ class gains(Exchange, ImplicitAPI):
             'swap': self.safe_string(market, 'type') == 'swap',
             'option': self.safe_string(market, 'type') == 'option',
             'contract': self.safe_string(market, 'type') in ('option', 'future', 'swap'),
-            'settle': None,
-            'settleId': None,
+            'settle': self.safe_string(market, 'settle'),
+            'settleId': self.safe_string(market, 'settleId'),
             'contractSize': None,
             'linear': True,
             'inverse': None,
@@ -318,37 +234,13 @@ class gains(Exchange, ImplicitAPI):
         return result
 
     def parse_order(self, order: dict, market: Market = None) -> Order:
-        # Order structure:
-        # {
-        #     'id':                '12345-67890:09876/54321', // string
-        #     'clientOrderId':     'abcdef-ghijklmnop-qrstuvwxyz', // a user-defined clientOrderId, if any
-        #     'datetime':          '2017-08-17 12:42:48.000', // ISO8601 datetime of 'timestamp' with milliseconds
-        #     'timestamp':          1502962946216, // order placing/opening Unix timestamp in milliseconds
-        #     'lastTradeTimestamp': 1502962956216, // Unix timestamp of the most recent trade on this order
-        #     'status':      'open',        // 'open', 'closed', 'canceled', 'expired', 'rejected'
-        #     'symbol':      'ETH/BTC',     // symbol
-        #     'type':        'limit',       // 'market', 'limit'
-        #     'timeInForce': 'GTC',         // 'GTC', 'IOC', 'FOK', 'PO'
-        #     'side':        'buy',         // 'buy', 'sell'
-        #     'price':        0.06917684,   // float price in quote currency (may be empty for market orders)
-        #     'average':      0.06917684,   // float average filling price
-        #     'amount':       1.5,          // ordered amount of base currency
-        #     'filled':       1.1,          // filled amount of base currency
-        #     'remaining':    0.4,          // remaining amount to fill
-        #     'cost':         0.076094524,  // 'filled' * 'price' (filling price used where available)
-        #     'trades':     [ ... ],        // a list of order trades/executions
-        #     'fee': {                      // fee info, if available
-        #         'currency': 'BTC',        // which currency the fee is (usually quote)
-        #         'cost': 0.0009,           // the fee amount in that currency
-        #         'rate': 0.002,            // the fee rate (if available)
-        #     },
-        #     'info': { ... },              // the original unparsed order structure as is
-        # }
         timestamp: Int = self.safe_integer(order, 'timestamp', None)
         # TODO try to use self.safe_order
-
-        order_is_open = self.safe_value(order, 'isOpen', None)
-        fee, fees = self.parsed_fee_and_fees(order)
+        order_is_open = self.safe_bool(order, 'isOpen')
+        trades = self.parse_trades([self.safe_dict(order, 'trade')])
+        fee = None
+        if not order_is_open:
+            fee = self.safe_dict(trades[0], 'fee', None)
         return {
             'id': self.safe_string(order, 'id'),
             'clientOrderId': self.safe_string(order, 'clientOrderId', None),
@@ -373,8 +265,7 @@ class gains(Exchange, ImplicitAPI):
             'remaining': self.safe_float(order, 'remaining', None),
             'status': self.safe_string(order, 'status', None),
             'fee': fee,
-            'fees': fees,
-            'trades': self.parse_trades([self.safe_dict(order, 'trade')]),
+            'trades': trades,
             'info': order,
         }
 
@@ -392,48 +283,6 @@ class gains(Exchange, ImplicitAPI):
             'pair': symbol,
         }
         response = self.privateGetOrder(self.extend(request, params))
-        # {
-        #     "id": "140",
-        #     "clientOrderId": "49e0b476-f279-4a28-b425-0c0d19a4d4b8",
-        #     "tradeId": "74",
-        #     "datetime": "2025-03-06 14:21:24.000",
-        #     "timestamp": 1741270884,
-        #     "lastTradeTimestamp": 1741270886,
-        #     "status": "CANCELED",
-        #     "symbol": "ETH/USD",
-        #     "type": "MARKET",
-        #     "timeInForce": "GTC",
-        #     "side": "BUY",
-        #     "price": "2251.87900000",
-        #     "average": "2251.87900000",
-        #     "amount": "0.01000000",
-        #     "filled": "0.01000000",
-        #     "remaining": "0.00000000",
-        #     "cost": "20.47162700",
-        #     "leverage": "1.10",
-        #     "blockNumber": 129903054,
-        #     "txHash": "0x63668ea93e0742928abfc66a8c77921026a8967255c520b79277390144c42fe9",
-        #     "lastUpdated": "2025-03-06T14:22:40.848Z",
-        #     "trades": [
-        #         {
-        #             "id": "74",
-        #             "timestamp": "1741270886",
-        #             "datetime": "2025-03-06 14:21:26.000",
-        #             "symbol": "ETH/USD",
-        #             "order": "140",
-        #             "isOpen": false,
-        #             "type": "MARKET",
-        #             "side": "BUY",
-        #             "takerOrMaker": "TAKER",
-        #             "price": "22523323263900.00000000",
-        #             "amount": "0.00000000",
-        #             "cost": "0.00000000",
-        #             "lastUpdated": "2025-03-06T14:22:40.835Z",
-        #             "blockNumber": 129903061,
-        #             "txHash": "0x68c6fdca6bf760d11a36d8ac391a97e779fb4d721f0b8e83b159772da703c02e"
-        #         }
-        #     ]
-        # },
         return self.parse_order(response)
 
     def fetch_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Order]:
@@ -456,50 +305,6 @@ class gains(Exchange, ImplicitAPI):
         if limit is not None:
             request['limit'] = limit
         response = self.privateGetOrders(self.extend(request, params))
-        # [
-        #     {
-        #         "id": "140",
-        #         "clientOrderId": "49e0b476-f279-4a28-b425-0c0d19a4d4b8",
-        #         "tradeId": "74",
-        #         "datetime": "2025-03-06 14:21:24.000",
-        #         "timestamp": 1741270884,
-        #         "lastTradeTimestamp": 1741270886,
-        #         "status": "CANCELED",
-        #         "symbol": "ETH/USD",
-        #         "type": "MARKET",
-        #         "timeInForce": "GTC",
-        #         "side": "BUY",
-        #         "price": "2251.87900000",
-        #         "average": "2251.87900000",
-        #         "amount": "0.01000000",
-        #         "filled": "0.01000000",
-        #         "remaining": "0.00000000",
-        #         "cost": "20.47162700",
-        #         "leverage": "1.10",
-        #         "blockNumber": 129903054,
-        #         "txHash": "0x63668ea93e0742928abfc66a8c77921026a8967255c520b79277390144c42fe9",
-        #         "lastUpdated": "2025-03-06T14:22:40.848Z",
-        #         "trades": [
-        #             {
-        #                 "id": "74",
-        #                 "timestamp": "1741270886",
-        #                 "datetime": "2025-03-06 14:21:26.000",
-        #                 "symbol": "ETH/USD",
-        #                 "order": "140",
-        #                 "isOpen": false,
-        #                 "type": "MARKET",
-        #                 "side": "BUY",
-        #                 "takerOrMaker": "TAKER",
-        #                 "price": "22523323263900.00000000",
-        #                 "amount": "0.00000000",
-        #                 "cost": "0.00000000",
-        #                 "lastUpdated": "2025-03-06T14:22:40.835Z",
-        #                 "blockNumber": 129903061,
-        #                 "txHash": "0x68c6fdca6bf760d11a36d8ac391a97e779fb4d721f0b8e83b159772da703c02e"
-        #             }
-        #         ]
-        #     }
-        # ]
         return self.parse_orders(response)
 
     def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={}) -> Order:
@@ -514,7 +319,6 @@ class gains(Exchange, ImplicitAPI):
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :returns dict: an `order structure <https://docs.ccxt.com/#/?id=order-structure>`
         """
-
         request: dict = {
             'pair': symbol,
             'type': type,
@@ -526,29 +330,11 @@ class gains(Exchange, ImplicitAPI):
         if side != 'buy' and side != 'sell':
             raise NotSupported(self.id + ' createOrder() side must be buy or sell')
         response = self.privatePostOrder(self.extend(request, params))
-        # {
-        #     "id": "147",
-        #     "tradeId": null,
-        #     "datetime": "2025-03-10 17:49:28.000",
-        #     "timestamp": 1741628968,
-        #     "lastTradeTimestamp": null,
-        #     "symbol": "ETH/USD",
-        #     "price": 1918.099,
-        #     "amount": 0.01,
-        #     "average": 1918.099,
-        #     "filled": 0.01,
-        #     "remaining": 0,
-        #     "cost": 17.437264,
-        #     "leverage": 1.1,
-        #     "txHash": "0x4884d0164f43ae7943a27ef4bc258081a6f0573702fed7d6118383aa8f5c8a5a",
-        #     "blockNumber": 131140814
-        # }
         return self.parse_order(response)
 
     def cancel_order(self, id: str, symbol: Str = None, params={}) -> Order:
         """
         cancels an open order
-        :see: TODO add a link to the relevant part of the exchange API documentation
         :param str id: order id
         :param str symbol: unified symbol of the market the order was made in
         :param dict [params]: extra parameters specific to the exchange API endpoint
@@ -558,48 +344,6 @@ class gains(Exchange, ImplicitAPI):
             'id': id,
         }
         response = self.privateDeleteOrder(self.extend(request, params))
-        # {
-        #     "id": "147",
-        #     "clientOrderId": "385036fa-474e-4df1-a448-6b4a1faf6788",
-        #     "tradeId": "79",
-        #     "datetime": "2025-03-10 17:49:28.000",
-        #     "timestamp": 1741628968,
-        #     "lastTradeTimestamp": 1741628969,
-        #     "status": "EXECUTED",
-        #     "symbol": "ETH/USD",
-        #     "type": "MARKET",
-        #     "timeInForce": "GTC",
-        #     "side": "BUY",
-        #     "price": "1918.09900000",
-        #     "average": "1918.09900000",
-        #     "amount": "0.01000000",
-        #     "filled": "0.01000000",
-        #     "remaining": "0.00000000",
-        #     "cost": "17.43726400",
-        #     "leverage": "1.10",
-        #     "blockNumber": 131140814,
-        #     "txHash": "0x4884d0164f43ae7943a27ef4bc258081a6f0573702fed7d6118383aa8f5c8a5a",
-        #     "lastUpdated": "2025-03-10T17:49:29.618Z",
-        #     "trades": [
-        #         {
-        #             "id": "79",
-        #             "timestamp": "1741628969",
-        #             "datetime": "2025-03-10 17:49:29.000",
-        #             "symbol": "ETH/USD",
-        #             "order": "147",
-        #             "isOpen": true,
-        #             "type": "MARKET",
-        #             "side": "BUY",
-        #             "takerOrMaker": "TAKER",
-        #             "price": "19185032239200.00000000",
-        #             "amount": "0.00000000",
-        #             "cost": "0.00000000",
-        #             "lastUpdated": "2025-03-10T17:49:29.609Z",
-        #             "blockNumber": 131140817,
-        #             "txHash": "0xf0cb7aa00f5172b7cd7ad57c85f4af2ac66362542fc7e6b460863065474c4377"
-        #         }
-        #     ]
-        # }
         return self.parse_order(response)
 
     def parse_balance(self, response) -> Balances:
@@ -616,7 +360,6 @@ class gains(Exchange, ImplicitAPI):
 
         result['timestamp'] = self.safe_integer(response, 'timestamp')
         result['datetime'] = self.safe_string(response, 'datetime')
-
         return result
 
     def fetch_balance(self, params={}) -> dict:
@@ -636,18 +379,6 @@ class gains(Exchange, ImplicitAPI):
         return results
 
     def parse_ohlcv(self, ohlcv, market: Market = None) -> list:
-        # OHLCV structure:
-        # [
-        #     [
-        #         1504541580000, // UTC timestamp in milliseconds, integer
-        #         4235.4,        // (O)pen price, float
-        #         4240.6,        // (H)ighest price, float
-        #         4230.0,        // (L)owest price, float
-        #         4230.7,        // (C)losing price, float
-        #         37.72941911    // (V)olume float (usually in terms of the base currency, the exchanges docstring may list whether quote or base units are used)
-        #     ],
-        #     ...
-        # ]
         if isinstance(ohlcv, list):
             return [
                 self.safe_integer(ohlcv, 0),  # timestamp
@@ -679,52 +410,9 @@ class gains(Exchange, ImplicitAPI):
         if since is not None:
             request['since'] = since
         response = self.publicGetOhlcv(self.extend(request, params))
-        # [
-        #     [
-        #         1741860840021,
-        #         1892.5469,
-        #         1894.94,
-        #         1892.5469,
-        #         1893.8924,
-        #         0
-        #     ],
-        #     [
-        #         1741860780007,
-        #         1890.9524,
-        #         1892.719,
-        #         1890.9524,
-        #         1892.5469,
-        #         0
-        #     ],
-        # ...
-        # ]
         return self.parse_ohlcvs(response)
 
     def parse_ticker(self, ticker: dict, market: Market = None) -> Ticker:
-        # Ticker structure:
-        # {
-        #     'symbol':        string symbol of the market ('BTC/USD', 'ETH/BTC', ...)
-        #     'info':        { the original non-modified unparsed reply from exchange API },
-        #     'timestamp':     int (64-bit Unix Timestamp in milliseconds since Epoch 1 Jan 1970)
-        #     'datetime':      ISO8601 datetime string with milliseconds
-        #     'high':          float, // highest price
-        #     'low':           float, // lowest price
-        #     'bid':           float, // current best bid (buy) price
-        #     'bidVolume':     float, // current best bid (buy) amount (may be missing or undefined)
-        #     'ask':           float, // current best ask (sell) price
-        #     'askVolume':     float, // current best ask (sell) amount (may be missing or undefined)
-        #     'vwap':          float, // volume weighed average price
-        #     'open':          float, // opening price
-        #     'close':         float, // price of last trade (closing price for current period)
-        #     'last':          float, // same as `close`, duplicated for convenience
-        #     'previousClose': float, // closing price for the previous period
-        #     'change':        float, // absolute change, `last - open`
-        #     'percentage':    float, // relative change, `(change/open) * 100`
-        #     'average':       float, // average price, `(last + open) / 2`
-        #     'baseVolume':    float, // volume of base currency traded for last 24 hours
-        #     'quoteVolume':   float, // volume of quote currency traded for last 24 hours
-        # }
-
         # TODO try to use self.safe_ticker
         timestamp = self.safe_integer(ticker, 'timestamp')
         return {
@@ -762,27 +450,6 @@ class gains(Exchange, ImplicitAPI):
             'pair': symbol,
         }
         response = self.publicGetTicker(self.extend(request, params))
-        # {
-        #     "symbol": "ETH/USD",
-        #     "timestamp": 1742920560018,
-        #     "datetime": "2025-03-25T16:36:00.018Z",
-        #     "high": 2063.3282,
-        #     "low": 2062.674,
-        #     "bid": 2060.8252119000003,
-        #     "bidVolume": 12.5,
-        #     "ask": 2064.9509881,
-        #     "askVolume": 8.3,
-        #     "vwap": 0,
-        #     "open": 2063.09,
-        #     "close": 2062.8881,
-        #     "last": 2062.8881,
-        #     "previousClose": 2069.7879,
-        #     "change": -0.20190000000002328,
-        #     "percentage": -0.009786291436632589,
-        #     "average": 2062.98905,
-        #     "baseVolume": 0,
-        #     "quoteVolume": 0
-        # }
         return self.parse_ticker(response)
 
     def parse_leverage_tiers(self, response: Any, symbols: List[str] = None, marketIdKey=None) -> LeverageTiers:
@@ -792,30 +459,6 @@ class gains(Exchange, ImplicitAPI):
         return results
 
     def parse_market_leverage_tiers(self, info, market: Market = None) -> List[LeverageTier]:
-        # Leverage tiers structure
-        # [
-        #     {
-        #         "tier": 1,                       // tier index
-        #         "symbol": "BTC/USDT",            // the market symbol that the leverage tier applies to
-        #         "currency": "USDT",              // the currency that minNotional and maxNotional are in
-        #         "minNotional": 0,                // the lowest amount of this tier // stake = 0.0
-        #         "maxNotional": 10000,            // the highest amount of this tier // max stake amount at 75x leverage = 133.33333333333334
-        #         "maintenanceMarginRate": 0.0065, // maintenance margin rate
-        #         "maxLeverage": 75,               // max available leverage for this market when the value of the trade is > minNotional and < maxNotional
-        #         "info": { ... }                  // Response from exchange
-        #     },
-        #     {
-        #         "tier": 2,
-        #         "symbol": "BTC/USDT",
-        #         "currency": "USDT",
-        #         "minNotional": 10000,            // min stake amount at 50x leverage = 200.0
-        #         "maxNotional": 50000,            // max stake amount at 50x leverage = 1000.0
-        #         "maintenanceMarginRate": 0.01,
-        #         "maxLeverage": 50,
-        #         "info": { ... },
-        #     },
-        #     ...
-        # ]
         results = []
         for j in range(0, len(info)):
             leverageTier = info[j]
@@ -842,29 +485,9 @@ class gains(Exchange, ImplicitAPI):
         if symbols is not None:
             request['symbols'] = symbols
         response = self.privateGetLeverageTiers(self.extend(request, params))
-        # {
-        #     "ETH/USD": [
-        #         {
-        #             "tier": 1,
-        #             "notionalCurrency": "USD",
-        #             "minNotional": 1250,
-        #             "maxNotional": 100,
-        #             "maintenanceMarginRate": 0.01,
-        #             "maxLeverage": 100
-        #         }
-        #     ]
-        # }
         return self.parse_leverage_tiers(response)
 
     def parse_leverage(self, leverage: dict, market: Market = None) -> dict:
-        # Leverage structure
-        # {
-        #     "info": { ... }             // response from the exchange
-        #     "symbol": "BTC/USDT:USDT",  // unified market symbol
-        #     "marginMode": "cross",      // the margin mode either cross or isolated
-        #     "longLeverage": 100,        // the set leverage for a long position
-        #     "shortLeverage": 75,        // the set leverage for a short position
-        # }
         return {
             "info": leverage,
             "symbol": self.safe_string(leverage, 'symbol'),
@@ -891,39 +514,28 @@ class gains(Exchange, ImplicitAPI):
             'short_leverage': leverage,
         }
         response = self.privatePostLeverage(self.extend(request, params))
-        # {
-        #     "symbol": "ETH/USD",
-        #     "pairIndex": 1,
-        #     "longLeverage": 2,
-        #     "shortLeverage": 2,
-        #     "lastUpdated": "2025-03-13T11:56:42.637Z"
-        # }
         return self.parse_leverage(response)
 
-    def parse_fee(self, container: dict):
-        if not container:
-            return {'currency': 'USD', 'rate': 0, 'cost': 0}
-
+    def parse_fee(self, trade: dict) -> Optional[FeeInterface]:
+        if not trade or self.safe_bool(trade, 'isOpen', True):
+            return None
+        price_open = self.safe_number(trade, 'priceOpen')
+        price_close = self.safe_number(trade, 'priceClose')
+        price_usd = self.safe_number(trade, 'priceUsd')
+        amount = self.safe_number(trade, 'amount')
+        if not all([price_open, price_close, price_usd, amount]):
+            return None
+        fees_list = self.safe_list(trade, 'fees', [])
+        if len(fees_list) != 2:
+            return None
+        open_fee = fees_list[0]
+        close_fee = fees_list[1]
+        fees_rate_sum = self.safe_number(open_fee, 'rate', 0) + self.safe_number(close_fee, 'rate', 0)
         return {
-            'currency': 'USD',
-            'rate': self.safe_number(container, 'rate', 0),
-            'cost': self.safe_number(container, 'cost', 0)
+            'currency': self.safe_string(open_fee, 'currency'),
+            'rate': fees_rate_sum * price_open / price_close,
+            'cost': fees_rate_sum * price_open * amount / price_usd,
         }
-
-    def parsed_fee_and_fees(self, container):
-        fees_list = self.safe_list(container, 'fees', [])
-        fee = {'currency': 'USD', 'rate': 0, 'cost': 0}
-        fees = []
-        if not fees_list:
-            return fee, [fee]
-
-        for f in fees_list:
-            parsed = self.parse_fee(f)
-            fee['rate'] += parsed['rate']
-            fee['cost'] += parsed['cost']
-            fees.append(parsed)
-
-        return fee, fees
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         result = []
@@ -932,54 +544,8 @@ class gains(Exchange, ImplicitAPI):
         return result
 
     def parse_trade(self, trade: dict, market: Market = None) -> Trade:
-        # Trade structure:
-        # {
-        #     'info':         { ... },                    // the original decoded JSON as is
-        #     'id':           '12345-67890:09876/54321',  // string trade id
-        #     'timestamp':    1502962946216,              // Unix timestamp in milliseconds
-        #     'datetime':     '2017-08-17 12:42:48.000',  // ISO8601 datetime with milliseconds
-        #     'symbol':       'ETH/BTC',                  // symbol
-        #     'order':        '12345-67890:09876/54321',  // string order id or undefined/None/null
-        #     'type':         'limit',                    // order type, 'market', 'limit' or undefined/None/null
-        #     'side':         'buy',                      // direction of the trade, 'buy' or 'sell'
-        #     'takerOrMaker': 'taker',                    // string, 'taker' or 'maker'
-        #     'price':        0.06917684,                 // float price in quote currency
-        #     'amount':       1.5,                        // amount of base currency
-        #     'cost':         0.10376526,                 // total cost, `price * amount`,
-        #     'fee':          {                           // provided by exchange or calculated by ccxt
-        #         'cost':  0.0015,                        // float
-        #         'currency': 'ETH',                      // usually base currency for buys, quote currency for sells
-        #         'rate': 0.002,                          // the fee rate (if available)
-        #     },
-        #     'fees': [                                   // an array of fees if paid in multiple currencies
-        #         {                                       // if provided by exchange or calculated by ccxt
-        #             'cost':  0.0015,                    // float
-        #             'currency': 'ETH',                  // usually base currency for buys, quote currency for sells
-        #             'rate': 0.002,                      // the fee rate (if available)
-        #         },
-        #     ],
-        # }
-
-        # Example:
-        # {
-        #     "id": "12345-67890",
-        #     "timestamp": 1652376800000,
-        #     "symbol": "BTC/USDT",
-        #     "order": "12345-67890",
-        #     "type": "limit",
-        #     "side": "buy",
-        #     "takerOrMaker": "taker",
-        #     "price": 50000.0,
-        #     "amount": 0.1,
-        #     "cost": 5000.0,
-        #     "fee": {
-        #         "cost": 0.0015,
-        #         "currency": "ETH",
-        #         "rate": 0.002
-        #     }
-        # }
         # TODO try to use self.safe_trade
-        fee, fees = self.parsed_fee_and_fees(trade)
+        fee = self.parse_fee(trade)
         return {
             'id': self.safe_string(trade, 'id'),
             'symbol': self.safe_string(trade, 'symbol'),
@@ -993,7 +559,6 @@ class gains(Exchange, ImplicitAPI):
             'amount': self.safe_float(trade, 'amount'),
             'cost': self.safe_float(trade, 'cost'),
             'fee': fee,
-            'fees': fees,
             'info': trade,
         }
 
@@ -1015,56 +580,6 @@ class gains(Exchange, ImplicitAPI):
         if since is not None:
             request['since'] = since
         response = self.privateGetTrades(self.extend(request, params))
-        # [
-        #     {
-        #         "id": "12345-67890",
-        #         "timestamp": 1652376800000,
-        #         "symbol": "BTC/USDT",
-        #         "order": "12345-67890",
-        #         "type": "limit",
-        #         "side": "buy",
-        #         "takerOrMaker": "taker",
-        #         "price": 50000.0,
-        #         "amount": 0.1,
-        #         "cost": 5000.0,
-        #         "fee": {
-        #             "cost": 0.0015,
-        #             "currency": "ETH",
-        #             "rate": 0.002
-        #         },
-        #         "fees": [
-        #             {
-        #                 "cost": 0.0015,
-        #                 "currency": "ETH",
-        #                 "rate": 0.002
-        #             }
-        #         ]
-        #     },
-        #     {
-        #         "id": "12345-67891",
-        #         "timestamp": 1652376801000,
-        #         "symbol": "BTC/USDT",
-        #         "order": "12345-67891",
-        #         "type": "limit",
-        #         "side": "sell",
-        #         "takerOrMaker": "maker",
-        #         "price": 50000.0,
-        #         "amount": 0.1,
-        #         "cost": 5000.0,
-        #         "fee": {
-        #             "cost": 0.0015,
-        #             "currency": "ETH",
-        #             "rate": 0.002
-        #         },
-        #         "fees": [
-        #             {
-        #                 "cost": 0.0015,
-        #                 "currency": "ETH",
-        #                 "rate": 0.002
-        #             }
-        #         ]
-        #     }
-        # ]
         return self.parse_trades(response, None, since, limit)
 
     def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
@@ -1087,31 +602,6 @@ class gains(Exchange, ImplicitAPI):
         return result
 
     def parse_position(self, position: dict, market: Market = None) -> Position:
-        # {
-        #    'info': { ... },             // json response returned from the exchange as is
-        #    'id': '1234323',             // string, position id to reference the position, similar to an order id
-        #    'symbol': 'BTC/USD',         // uppercase string literal of a pair of currencies
-        #    'timestamp': 1607723554607,  // integer unix time since 1st Jan 1970 in milliseconds
-        #    'datetime': '2020-12-11T21:52:34.607Z',  // ISO8601 representation of the unix time above
-        #    'isolated': true,            // boolean, whether or not the position is isolated, as opposed to cross where margin is added automatically
-        #    'hedged': false,             // boolean, whether or not the position is hedged, i.e. if trading in the opposite direction will close this position or make a new one
-        #    'side': 'long',              // string, long or short
-        #    'contracts': 5,              // float, number of contracts bought, aka the amount or size of the position
-        #    'contractSize': 100,         // float, the size of one contract in quote units
-        #    'entryPrice': 20000,         // float, the average entry price of the position
-        #    'markPrice': 20050,          // float, a price that is used for funding calculations
-        #    'notional': 100000,          // float, the value of the position in the settlement currency
-        #    'leverage': 100,             // float, the leverage of the position, related to how many contracts you can buy with a given amount of collateral
-        #    'collateral': 5300,          // float, the maximum amount of collateral that can be lost, affected by pnl
-        #    'initialMargin': 5000,       // float, the amount of collateral that is locked up in this position
-        #    'maintenanceMargin': 1000,   // float, the mininum amount of collateral needed to avoid being liquidated
-        #    'initialMarginPercentage': 0.05,      // float, the initialMargin as a percentage of the notional
-        #    'maintenanceMarginPercentage': 0.01,  // float, the maintenanceMargin as a percentage of the notional
-        #    'unrealizedPnl': 300,        // float, the difference between the market price and the entry price times the number of contracts, can be negative
-        #    'liquidationPrice': 19850,   // float, the price at which collateral becomes less than maintenanceMargin
-        #    'marginMode': 'cross',       // string, can be cross or isolated
-        #    'percentage': 3.32,          // float, represents unrealizedPnl / initialMargin * 100
-        # }
         return {
             'info': position,
             'id': self.safe_string(position, 'id'),
@@ -1159,14 +649,6 @@ class gains(Exchange, ImplicitAPI):
     def handle_errors(self, httpCode: int, reason: str, url: str, method: str, headers: dict, body: str, response, requestHeaders, requestBody):
         if response is None:
             return None  # fallback to default error handler
-        #
-        #    {
-        #        "code": 80014,
-        #        "msg": "Invalid parameters, err:Key: 'GetTickerRequest.Symbol' Error:Field validation for "Symbol" failed on the "len=0|endswith=-USDT" tag",
-        #        "data": {
-        #        }
-        #    }
-        #
         code = self.safe_string(response, 'code')
         message = self.safe_string(response, 'msg')
         if code is not None and code != '0':

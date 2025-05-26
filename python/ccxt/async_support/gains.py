@@ -3,8 +3,8 @@
 from ccxt.async_support.base.exchange import Exchange
 from ccxt.abstract.gains import ImplicitAPI
 from ccxt.base.types import Bool, Int, LeverageTier, LeverageTiers, Market, Num, Order, OrderSide, OrderType, Str, \
-    Strings, Ticker, Trade, Fee, FundingHistory, Position, Balances
-from typing import List, Any
+    Strings, Ticker, Trade, Fee, FundingHistory, Position, Balances, FeeInterface
+from typing import List, Any, Optional
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import ArgumentsRequired
 from ccxt.base.errors import NotSupported
@@ -91,32 +91,29 @@ class gains(Exchange, ImplicitAPI):
                 'ws': False,
             },
             'timeframes': {
-                '1m': 1,
-                '5m': 5,
-                '10m': 10,
-                '30m': 10,
-                '1h': 60,
-                '2h': 120,
-                '4h': 240,
-                '8h': 480,
-                '12h': 720,
-                '1d': 24,
-                '1w': 70,
-                '1M': 31,
+              '1m': 1,
+              '5m': 5,
+              '10m': 10,
+              '15m': 15,
+              '30m': 30,
+              '45m': 45,
+              '1h': 60,
+              '4h': 240,
+              '8h': 480,
+              '12h': 720,
+              '1d': 1440,
+              '1w': 1440,
+              '1M': 40320,
             },
+            # TODO: remove api from here and setup it through config
             'urls': {
-                'logo': 'https://some-logo.jpg',
                 'api': {
                     'public': 'http://localhost:8000',
                     'private': 'http://localhost:8000',
                 },
-                'www': 'https://gains.com/',
-                'doc': [
-                    'https://gains.com/gains-offical-api-docs',
-                ],
-                'fees': 'https://gains.com/fees',
+                'www': 'https://gains.trade/',
+                'doc': 'https://gains-network.gitbook.io/docs-home',
             },
-            'requiredCredentials': {},
             'api': {
                 'public': {
                     'get': [
@@ -143,14 +140,7 @@ class gains(Exchange, ImplicitAPI):
                     ],
                 },
             },
-            'fees': {
-            },
-            'options': {
-            },
             'precisionMode': TICK_SIZE,
-            'exceptions': {},
-            'commonCurrencies': {
-            },
         })
 
     async def fetch_markets(self, params={}) -> List[Market]:
@@ -185,8 +175,8 @@ class gains(Exchange, ImplicitAPI):
             'swap': self.safe_string(market, 'type') == 'swap',
             'option': self.safe_string(market, 'type') == 'option',
             'contract': self.safe_string(market, 'type') in ('option', 'future', 'swap'),
-            'settle': None,
-            'settleId': None,
+            'settle': self.safe_string(market, 'settle'),
+            'settleId': self.safe_string(market, 'settleId'),
             'contractSize': None,
             'linear': True,
             'inverse': None,
@@ -237,8 +227,11 @@ class gains(Exchange, ImplicitAPI):
 
     def parse_order(self, order: dict, market: Market = None) -> Order:
         timestamp: Int = self.safe_integer(order, 'timestamp', None)
-        order_is_open = self.safe_value(order, 'isOpen', None)
-        fee, fees = self.parsed_fee_and_fees(order)
+        order_is_open = self.safe_bool(order, 'isOpen')
+        trades = self.parse_trades([self.safe_dict(order, 'trade')])
+        fee = None
+        if not order_is_open:
+            fee = self.safe_dict(trades[0], 'fee', None)
         return {
             'id': self.safe_string(order, 'id'),
             'clientOrderId': self.safe_string(order, 'clientOrderId', None),
@@ -263,8 +256,7 @@ class gains(Exchange, ImplicitAPI):
             'remaining': self.safe_float(order, 'remaining', None),
             'status': self.safe_string(order, 'status', None),
             'fee': fee,
-            'fees': fees,
-            'trades': self.parse_trades([self.safe_dict(order, 'trade')]),
+            'trades': trades,
             'info': order,
         }
 
@@ -442,30 +434,26 @@ class gains(Exchange, ImplicitAPI):
         response = await self.privatePostLeverage(self.extend(request, params))
         return self.parse_leverage(response)
 
-    def parse_fee(self, container: dict):
-        if not container:
-            return {'currency': 'USD', 'rate': 0, 'cost': 0}
-
+    def parse_fee(self, trade: dict) -> Optional[FeeInterface]:
+        if not trade or self.safe_bool(trade, 'isOpen', True):
+            return None
+        price_open = self.safe_number(trade, 'priceOpen')
+        price_close = self.safe_number(trade, 'priceClose')
+        price_usd = self.safe_number(trade, 'priceUsd')
+        amount = self.safe_number(trade, 'amount')
+        if not all([price_open, price_close, price_usd, amount]):
+            return None
+        fees_list = self.safe_list(trade, 'fees', [])
+        if len(fees_list) != 2:
+            return None
+        open_fee = fees_list[0]
+        close_fee = fees_list[1]
+        fees_rate_sum = self.safe_number(open_fee, 'rate', 0) + self.safe_number(close_fee, 'rate', 0)
         return {
-            'currency': 'USD',
-            'rate': self.safe_number(container, 'rate', 0),
-            'cost': self.safe_number(container, 'cost', 0)
+            'currency': self.safe_string(open_fee, 'currency'),
+            'rate': fees_rate_sum * price_open / price_close,
+            'cost': fees_rate_sum * price_open * amount / price_usd,
         }
-
-    def parsed_fee_and_fees(self, container):
-        fees_list = self.safe_list(container, 'fees', [])
-        fee = {'currency': 'USD', 'rate': 0, 'cost': 0}
-        fees = []
-        if not fees_list:
-            return fee, [fee]
-
-        for f in fees_list:
-            parsed = self.parse_fee(f)
-            fee['rate'] += parsed['rate']
-            fee['cost'] += parsed['cost']
-            fees.append(parsed)
-
-        return fee, fees
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         result = []
@@ -474,7 +462,7 @@ class gains(Exchange, ImplicitAPI):
         return result
 
     def parse_trade(self, trade: dict, market: Market = None) -> Trade:
-        fee, fees = self.parsed_fee_and_fees(trade)
+        fee = self.parse_fee(trade)
         return {
             'id': self.safe_string(trade, 'id'),
             'symbol': self.safe_string(trade, 'symbol'),
@@ -488,7 +476,6 @@ class gains(Exchange, ImplicitAPI):
             'amount': self.safe_string(trade, 'amount'),
             'cost': self.safe_string(trade, 'cost'),
             'fee': fee,
-            'fees': fees,
             'info': trade,
         }
 
@@ -550,6 +537,7 @@ class gains(Exchange, ImplicitAPI):
         }
 
     async def fetch_funding_history(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[FundingHistory]:
+        # TODO remove it in the future
         return []
 
     def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
