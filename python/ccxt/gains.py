@@ -521,9 +521,7 @@ class gains(Exchange, ImplicitAPI):
             return None
         price_open = self.safe_number(trade, 'priceOpen')
         price_close = self.safe_number(trade, 'priceClose')
-        price_usd = self.safe_number(trade, 'priceUsd')
-        amount = self.safe_number(trade, 'amount')
-        if not all([price_open, price_close, price_usd, amount]):
+        if not all([price_open, price_close]):
             return None
         fees_list = self.safe_list(trade, 'fees', [])
         if len(fees_list) != 2:
@@ -531,10 +529,11 @@ class gains(Exchange, ImplicitAPI):
         open_fee = fees_list[0]
         close_fee = fees_list[1]
         fees_rate_sum = self.safe_number(open_fee, 'rate', 0) + self.safe_number(close_fee, 'rate', 0)
+        fees_cost_sum = self.safe_number(open_fee, 'cost', 0) + self.safe_number(close_fee, 'cost', 0)
         return {
             'currency': self.safe_string(open_fee, 'currency'),
             'rate': fees_rate_sum * price_open / price_close,
-            'cost': fees_rate_sum * price_open * amount / price_usd,
+            'cost': fees_cost_sum,
         }
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
