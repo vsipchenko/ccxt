@@ -237,8 +237,8 @@ class gains(Exchange, ImplicitAPI):
         timestamp: Int = self.safe_integer(order, 'timestamp', None)
         # TODO try to use self.safe_order
         order_is_open = self.safe_bool(order, 'isOpen')
-        trades = self.parse_trades([self.safe_dict(order, 'trade')])
-        fee = self.parse_fee(trade={} if order_is_open else self.safe_dict(trades[0], 'trade', {}))
+        trade_raw = self.safe_dict(order, 'trade')
+        fee = self.parse_fee(trade={} if order_is_open else trade_raw)
         return {
             'id': self.safe_string(order, 'id'),
             'clientOrderId': self.safe_string(order, 'clientOrderId', None),
@@ -263,7 +263,7 @@ class gains(Exchange, ImplicitAPI):
             'remaining': self.safe_float(order, 'remaining', None),
             'status': self.safe_string(order, 'status', None),
             'fee': fee,
-            'trades': trades,
+            'trades': [self.parse_trade(trade_raw)],
             'info': order,
         }
 
@@ -516,11 +516,11 @@ class gains(Exchange, ImplicitAPI):
 
     def parse_fee(self, trade: dict) -> Optional[FeeInterface]:
         default = {'currency': "USDC", 'rate': 0, 'cost': 0}
-        if not trade or self.safe_bool(trade, 'isOpen', True):
+        if not trade:
             return default
         price_open = self.safe_number(trade, 'priceOpen')
         price_close = self.safe_number(trade, 'priceClose')
-        if not all([price_open, price_close]):
+        if not price_open or not price_close:
             return default
         fees_list = self.safe_list(trade, 'fees', [])
         if len(fees_list) != 2:
