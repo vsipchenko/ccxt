@@ -238,9 +238,7 @@ class gains(Exchange, ImplicitAPI):
         # TODO try to use self.safe_order
         order_is_open = self.safe_bool(order, 'isOpen')
         trades = self.parse_trades([self.safe_dict(order, 'trade')])
-        fee = None
-        if not order_is_open:
-            fee = self.safe_dict(trades[0], 'fee', None)
+        fee = self.parse_fee(trade={} if order_is_open else self.safe_dict(trades[0], 'trade', {}))
         return {
             'id': self.safe_string(order, 'id'),
             'clientOrderId': self.safe_string(order, 'clientOrderId', None),
@@ -517,15 +515,16 @@ class gains(Exchange, ImplicitAPI):
         return self.parse_leverage(response)
 
     def parse_fee(self, trade: dict) -> Optional[FeeInterface]:
+        default = {'currency': "USDC", 'rate': 0, 'cost': 0}
         if not trade or self.safe_bool(trade, 'isOpen', True):
-            return None
+            return default
         price_open = self.safe_number(trade, 'priceOpen')
         price_close = self.safe_number(trade, 'priceClose')
         if not all([price_open, price_close]):
-            return None
+            return default
         fees_list = self.safe_list(trade, 'fees', [])
         if len(fees_list) != 2:
-            return None
+            return default
         open_fee = fees_list[0]
         close_fee = fees_list[1]
         fees_rate_sum = self.safe_number(open_fee, 'rate', 0) + self.safe_number(close_fee, 'rate', 0)
@@ -544,7 +543,6 @@ class gains(Exchange, ImplicitAPI):
 
     def parse_trade(self, trade: dict, market: Market = None) -> Trade:
         # TODO try to use self.safe_trade
-        fee = self.parse_fee(trade)
         return {
             'id': self.safe_string(trade, 'id'),
             'symbol': self.safe_string(trade, 'symbol'),
@@ -557,7 +555,7 @@ class gains(Exchange, ImplicitAPI):
             'price': self.safe_float(trade, 'price'),
             'amount': self.safe_float(trade, 'amount'),
             'cost': self.safe_float(trade, 'cost'),
-            'fee': fee,
+            'fee': None,
             'info': trade,
         }
 
