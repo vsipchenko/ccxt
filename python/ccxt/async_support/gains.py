@@ -228,10 +228,8 @@ class gains(Exchange, ImplicitAPI):
     def parse_order(self, order: dict, market: Market = None) -> Order:
         timestamp: Int = self.safe_integer(order, 'timestamp', None)
         order_is_open = self.safe_bool(order, 'isOpen')
-        trades = self.parse_trades([self.safe_dict(order, 'trade')])
-        fee = None
-        if not order_is_open:
-            fee = self.safe_dict(trades[0], 'fee', None)
+        trade_raw = self.safe_dict(order, 'trade')
+        fee = self.parse_fee(trade={} if order_is_open else trade_raw)
         return {
             'id': self.safe_string(order, 'id'),
             'clientOrderId': self.safe_string(order, 'clientOrderId', None),
@@ -256,7 +254,7 @@ class gains(Exchange, ImplicitAPI):
             'remaining': self.safe_float(order, 'remaining', None),
             'status': self.safe_string(order, 'status', None),
             'fee': fee,
-            'trades': trades,
+            'trades': [self.parse_trade(trade_raw)],
             'info': order,
         }
 
@@ -435,24 +433,24 @@ class gains(Exchange, ImplicitAPI):
         return self.parse_leverage(response)
 
     def parse_fee(self, trade: dict) -> Optional[FeeInterface]:
-        if not trade or self.safe_bool(trade, 'isOpen', True):
-            return None
+        default = {'currency': "USDC", 'rate': 0, 'cost': 0}
+        if not trade:
+            return default
         price_open = self.safe_number(trade, 'priceOpen')
         price_close = self.safe_number(trade, 'priceClose')
-        price_usd = self.safe_number(trade, 'priceUsd')
-        amount = self.safe_number(trade, 'amount')
-        if not all([price_open, price_close, price_usd, amount]):
-            return None
+        if not price_open or not price_close:
+            return default
         fees_list = self.safe_list(trade, 'fees', [])
         if len(fees_list) != 2:
-            return None
+            return default
         open_fee = fees_list[0]
         close_fee = fees_list[1]
         fees_rate_sum = self.safe_number(open_fee, 'rate', 0) + self.safe_number(close_fee, 'rate', 0)
+        fees_cost_sum = self.safe_number(open_fee, 'cost', 0) + self.safe_number(close_fee, 'cost', 0)
         return {
             'currency': self.safe_string(open_fee, 'currency'),
             'rate': fees_rate_sum * price_open / price_close,
-            'cost': fees_rate_sum * price_open * amount / price_usd,
+            'cost': fees_cost_sum,
         }
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
@@ -462,7 +460,6 @@ class gains(Exchange, ImplicitAPI):
         return result
 
     def parse_trade(self, trade: dict, market: Market = None) -> Trade:
-        fee = self.parse_fee(trade)
         return {
             'id': self.safe_string(trade, 'id'),
             'symbol': self.safe_string(trade, 'symbol'),
@@ -472,10 +469,10 @@ class gains(Exchange, ImplicitAPI):
             'type': self.safe_string(trade, 'type'),
             'takerOrMaker': self.safe_string(trade, 'takerOrMaker'),
             'side': self.safe_string(trade, 'side'),
-            'price': self.safe_string(trade, 'price'),
-            'amount': self.safe_string(trade, 'amount'),
-            'cost': self.safe_string(trade, 'cost'),
-            'fee': fee,
+            'price': self.safe_float(trade, 'price'),
+            'amount': self.safe_float(trade, 'amount'),
+            'cost': self.safe_float(trade, 'cost'),
+            'fee': None,
             'info': trade,
         }
 
