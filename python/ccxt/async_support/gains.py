@@ -433,25 +433,15 @@ class gains(Exchange, ImplicitAPI):
         return self.parse_leverage(response)
 
     def parse_fee(self, trade: dict) -> Optional[FeeInterface]:
-        default = {'currency': "USDC", 'rate': 0, 'cost': 0}
+        fee = {'currency': "USDC", 'rate': 0, 'cost': 0}
+        rate = 0
+        cost = 0
         if not trade:
-            return default
-        price_open = self.safe_number(trade, 'priceOpen')
-        price_close = self.safe_number(trade, 'priceClose')
-        if not price_open or not price_close:
-            return default
-        fees_list = self.safe_list(trade, 'fees', [])
-        if len(fees_list) != 2:
-            return default
-        open_fee = fees_list[0]
-        close_fee = fees_list[1]
-        fees_rate_sum = self.safe_number(open_fee, 'rate', 0) + self.safe_number(close_fee, 'rate', 0)
-        fees_cost_sum = self.safe_number(open_fee, 'cost', 0) + self.safe_number(close_fee, 'cost', 0)
-        return {
-            'currency': self.safe_string(open_fee, 'currency'),
-            'rate': fees_rate_sum * price_open / price_close,
-            'cost': fees_cost_sum,
-        }
+            return fee
+        for f in trade['fees']:
+            rate += self.safe_number(f, 'rate')
+            cost += self.safe_number(f, 'cost')
+        return {'currency': "USDC", 'rate': rate, 'cost': round(cost, 6)}
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         result = []

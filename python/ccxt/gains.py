@@ -130,6 +130,7 @@ class gains(Exchange, ImplicitAPI):
                         'order',
                         'trades',
                         'positions',
+                        'funding_history',
                         'balance',
                         'leverage_tiers',
                     ],
@@ -515,25 +516,15 @@ class gains(Exchange, ImplicitAPI):
         return self.parse_leverage(response)
 
     def parse_fee(self, trade: dict) -> Optional[FeeInterface]:
-        default = {'currency': "USDC", 'rate': 0, 'cost': 0}
+        fee = {'currency': "USDC", 'rate': 0, 'cost': 0}
+        rate = 0
+        cost = 0
         if not trade:
-            return default
-        price_open = self.safe_number(trade, 'priceOpen')
-        price_close = self.safe_number(trade, 'priceClose')
-        if not price_open or not price_close:
-            return default
-        fees_list = self.safe_list(trade, 'fees', [])
-        if len(fees_list) != 2:
-            return default
-        open_fee = fees_list[0]
-        close_fee = fees_list[1]
-        fees_rate_sum = self.safe_number(open_fee, 'rate', 0) + self.safe_number(close_fee, 'rate', 0)
-        fees_cost_sum = self.safe_number(open_fee, 'cost', 0) + self.safe_number(close_fee, 'cost', 0)
-        return {
-            'currency': self.safe_string(open_fee, 'currency'),
-            'rate': fees_rate_sum * price_open / price_close,
-            'cost': fees_cost_sum,
-        }
+            return fee
+        for f in trade['fees']:
+            rate += self.safe_number(f, 'rate')
+            cost += self.safe_number(f, 'cost')
+        return {'currency': "USDC", 'rate': rate, 'cost': round(cost, 6)}
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         result = []
@@ -626,8 +617,30 @@ class gains(Exchange, ImplicitAPI):
         }
 
     def fetch_funding_history(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[FundingHistory]:
-        # TODO remove it in the future
-        return []
+        request: dict = {}
+        if limit is not None:
+            request['limit'] = limit
+        if since is not None:
+            request['since'] = since
+        response = self.privateGetFundingHistory(self.extend(request, params))
+        return self.parse_funding_histories(response)
+
+    def parse_funding_histories(self, response) -> List[FundingHistory]:
+        result = []
+        for i in range(0, len(response)):
+            result.append(self.parse_funding_history(response[i]))
+        return result
+
+    def parse_funding_history(self, funding: dict) -> FundingHistory:
+        return {
+            'symbol': self.safe_string(funding, 'symbol'),
+            'code': self.safe_string(funding, 'code'),
+            'timestamp': self.safe_integer(funding, 'timestamp'),
+            'datetime': self.safe_string(funding, 'datetime'),
+            'id': self.safe_string(funding, 'id'),
+            'amount': self.safe_float(funding, 'amount'),
+            'info': funding,
+        }
 
     def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
         endpoint = '/' + self.implode_params(path, params)
