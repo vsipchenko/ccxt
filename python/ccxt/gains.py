@@ -239,7 +239,7 @@ class gains(Exchange, ImplicitAPI):
         # TODO try to use self.safe_order
         order_is_open = self.safe_bool(order, 'isOpen')
         trade_raw = self.safe_dict(order, 'trade')
-        fee = self.parse_fee(trade={} if order_is_open else trade_raw)
+        fee = self.parse_fee(trade=trade_raw, is_open=order_is_open)
         return {
             'id': self.safe_string(order, 'id'),
             'clientOrderId': self.safe_string(order, 'clientOrderId', None),
@@ -515,16 +515,17 @@ class gains(Exchange, ImplicitAPI):
         response = self.privatePostLeverage(self.extend(request, params))
         return self.parse_leverage(response)
 
-    def parse_fee(self, trade: dict) -> Optional[FeeInterface]:
+    def parse_fee(self, trade: dict, is_open=False) -> dict:
         fee = {'currency': "USDC", 'rate': 0, 'cost': 0}
-        rate = 0
-        cost = 0
         if not trade:
             return fee
+        rate = 0
+        cost = 0
         for f in trade['fees']:
-            rate += self.safe_number(f, 'rate')
-            cost += self.safe_number(f, 'cost')
-        return {'currency': "USDC", 'rate': rate, 'cost': round(cost, 6)}
+            if f.get("isOpen", False) == is_open:
+                rate += self.safe_number(f, 'rate')
+                cost += self.safe_number(f, 'cost')
+        return {'currency': "USDC", 'rate': round(rate, 8), 'cost': round(cost, 6)}
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         result = []
