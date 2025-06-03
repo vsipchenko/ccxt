@@ -517,15 +517,16 @@ class gains(Exchange, ImplicitAPI):
 
     def parse_fee(self, trade: dict, is_open=False) -> dict:
         fee = {'currency': "USDC", 'rate': 0, 'cost': 0}
-        if not trade:
+        if not trade or is_open:
             return fee
+        price_open = self.safe_number(trade, "priceOpen")
+        price_close = self.safe_number(trade, "priceClose")
+        price_diff = price_open / price_close if price_open and price_close else 1
         rate = 0
-        cost = 0
-        for f in trade['fees']:
-            if f.get("isOpen", False) == is_open:
+        for f in trade["fees"]:
+            if f.get("isOpen", False):
                 rate += self.safe_number(f, 'rate')
-                cost += self.safe_number(f, 'cost')
-        return {'currency': "USDC", 'rate': round(rate, 8), 'cost': round(cost, 6)}
+        return {**fee, "rate": round(rate * price_diff, 8)}
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         result = []
