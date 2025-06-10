@@ -525,7 +525,7 @@ class gains(Exchange, ImplicitAPI):
         price_diff = price_open / price_close if price_open and price_close else 1
         close_fee_sum_cost = sum(self.safe_number(f, 'cost') for f in trade['fees'] if not self.safe_bool(f, 'isOpen'))
         rate = close_fee_sum_cost / (trade_cost * 1.1) * price_diff  # TODO replace with dynamic leverage
-        return {**fee, 'rate': round(rate, 8)}
+        return {**fee, 'rate': round(rate, 8), 'cost': None}
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         result = []
