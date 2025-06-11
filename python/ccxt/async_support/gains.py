@@ -3,8 +3,8 @@
 from ccxt.async_support.base.exchange import Exchange
 from ccxt.abstract.gains import ImplicitAPI
 from ccxt.base.types import Bool, Int, LeverageTier, LeverageTiers, Market, Num, Order, OrderSide, OrderType, Str, \
-    Strings, Ticker, Trade, Fee, FundingHistory, Position, Balances, FeeInterface
-from typing import List, Any, Optional
+    Strings, Ticker, Trade, FundingHistory, Position, Balances
+from typing import List, Any
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import ArgumentsRequired
 from ccxt.base.errors import NotSupported
@@ -61,7 +61,7 @@ class gains(Exchange, ImplicitAPI):
                 'fetchOpenInterestHistory': False,
                 'fetchOpenOrders': False,
                 'fetchOrder': True,
-                'fetchOrderBook': True,
+                'fetchOrderBook': False,
                 'fetchOrders': True,
                 'fetchOrderTrades': False,
                 'fetchPosition': False,
@@ -227,9 +227,10 @@ class gains(Exchange, ImplicitAPI):
 
     def parse_order(self, order: dict, market: Market = None) -> Order:
         timestamp: Int = self.safe_integer(order, 'timestamp', None)
+        # TODO try to use self.safe_order
         order_is_open = self.safe_bool(order, 'isOpen')
         trade_raw = self.safe_dict(order, 'trade')
-        fee = self.parse_fee(trade={} if order_is_open else trade_raw)
+        fee = self.parse_fee(trade=trade_raw, is_open=order_is_open)
         return {
             'id': self.safe_string(order, 'id'),
             'clientOrderId': self.safe_string(order, 'clientOrderId', None),
@@ -432,16 +433,18 @@ class gains(Exchange, ImplicitAPI):
         response = await self.privatePostLeverage(self.extend(request, params))
         return self.parse_leverage(response)
 
-    def parse_fee(self, trade: dict) -> Optional[FeeInterface]:
-        fee = {'currency': "USDC", 'rate': 0, 'cost': 0}
-        rate = 0
-        cost = 0
-        if not trade:
+    def parse_fee(self, trade: dict, is_open=False) -> dict:
+        fee = {'currency': 'USDC', 'rate': 0, 'cost': 0}
+        if not trade or is_open:
             return fee
-        for f in trade['fees']:
-            rate += self.safe_number(f, 'rate')
-            cost += self.safe_number(f, 'cost')
-        return {'currency': "USDC", 'rate': rate, 'cost': round(cost, 6)}
+        amount = self.safe_number(trade, 'amount')
+        price_open = self.safe_number(trade, 'priceOpen')
+        price_close = self.safe_number(trade, 'priceClose')
+        trade_cost = self.safe_number(trade, 'cost')
+        price_diff = price_open / price_close if price_open and price_close else 1
+        close_fee_sum_cost = sum(self.safe_number(f, 'cost') for f in trade['fees'] if not self.safe_bool(f, 'isOpen'))
+        rate = close_fee_sum_cost / (trade_cost * 1.1) * price_diff  # TODO replace with dynamic leverage
+        return {**fee, 'rate': round(rate, 8), 'cost': round(amount * price_close * rate, 8)}
 
     def parse_trades(self, trades: list, market: Market = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         result = []
@@ -481,13 +484,13 @@ class gains(Exchange, ImplicitAPI):
         # TODO temporary repeat method fetch_trades
         return await self.fetch_trades(symbol, since, limit, params)
 
-    def fetch_positions(self, symbols: Strings = None, params={}) -> List[Position]:
+    async def fetch_positions(self, symbols: Strings = None, params={}) -> List[Position]:
         request: dict = {}
         if symbols:
             # TODO move this logic into adapter
             symbol = symbols[0] if isinstance(symbols, list) else symbols
             request['symbol'] = symbol
-        response = self.privateGetPositions(self.extend(request, params))
+        response = await self.privateGetPositions(self.extend(request, params))
         return self.parse_positions(response)
 
     def parse_positions(self, positions: List[Any], symbols: List[str] = None, params={}) -> List[Position]:
@@ -523,9 +526,32 @@ class gains(Exchange, ImplicitAPI):
             'percentage': self.safe_float(position, 'percentage'),
         }
 
-    async def fetch_funding_history(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[FundingHistory]:
-        # TODO remove it in the future
-        return []
+    def fetch_funding_history(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[
+        FundingHistory]:
+        request: dict = {}
+        if limit is not None:
+            request['limit'] = limit
+        if since is not None:
+            request['since'] = since
+        response = self.privateGetFundingHistory(self.extend(request, params))
+        return self.parse_funding_histories(response)
+
+    def parse_funding_histories(self, response) -> List[FundingHistory]:
+        result = []
+        for i in range(0, len(response)):
+            result.append(self.parse_funding_history(response[i]))
+        return result
+
+    def parse_funding_history(self, funding: dict) -> FundingHistory:
+        return {
+            'symbol': self.safe_string(funding, 'symbol'),
+            'code': self.safe_string(funding, 'code'),
+            'timestamp': self.safe_integer(funding, 'timestamp'),
+            'datetime': self.safe_string(funding, 'datetime'),
+            'id': self.safe_string(funding, 'id'),
+            'amount': self.safe_float(funding, 'amount'),
+            'info': funding,
+        }
 
     def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
         endpoint = '/' + self.implode_params(path, params)

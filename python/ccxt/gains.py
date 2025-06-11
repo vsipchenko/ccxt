@@ -6,8 +6,8 @@ from ccxt import NotSupported
 from ccxt.base.exchange import Exchange
 from ccxt.abstract.gains import ImplicitAPI
 from ccxt.base.types import Bool, Int, LeverageTier, LeverageTiers, Market, Num, Order, OrderSide, OrderType, Str, \
-    Strings, Ticker, Trade, FundingHistory, Position, Balances, FeeInterface
-from typing import List, Any, Optional
+    Strings, Ticker, Trade, FundingHistory, Position, Balances
+from typing import List, Any
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import ArgumentsRequired
 from ccxt.base.decimal_to_precision import TICK_SIZE
@@ -63,7 +63,7 @@ class gains(Exchange, ImplicitAPI):
                 'fetchOpenInterestHistory': False,
                 'fetchOpenOrders': False,
                 'fetchOrder': True,
-                'fetchOrderBook': True,
+                'fetchOrderBook': False,
                 'fetchOrders': True,
                 'fetchOrderTrades': False,
                 'fetchPosition': False,
@@ -269,14 +269,6 @@ class gains(Exchange, ImplicitAPI):
         }
 
     def fetch_order(self, id: str, symbol: Str = None, params={}) -> Order:
-        """
-        fetches information on an order made by the user
-        :see: TODO add a link to the relevant part of the exchange API documentation
-        :param str id: the order id
-        :param str symbol: unified symbol of the market the order was made in
-        :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: An `order structure <https://docs.ccxt.com/#/?id=order-structure>`
-        """
         request: dict = {
             'id': id,
             'pair': symbol,
@@ -285,15 +277,6 @@ class gains(Exchange, ImplicitAPI):
         return self.parse_order(response)
 
     def fetch_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Order]:
-        """
-        fetches information on multiple orders made by the user
-        :see: TODO add a link to the relevant part of the exchange API documentation
-        :param str symbol: unified market symbol of the market orders were made in
-        :param int [since]: the earliest time in ms to fetch orders for
-        :param int [limit]: the maximum number of order structures to retrieve
-        :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns Order[]: a list of `order structures <https://docs.ccxt.com/#/?id=order-structure>`
-        """
         if symbol is None:
             raise ArgumentsRequired(self.id + ' fetchOrders() requires a symbol argument')
         request: dict = {
@@ -307,17 +290,6 @@ class gains(Exchange, ImplicitAPI):
         return self.parse_orders(response)
 
     def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={}) -> Order:
-        """
-        create a trade order
-        :see: TODO add a link to the relevant part of the exchange API documentation
-        :param str symbol: unified symbol of the market to create an order in
-        :param str type: 'market' or 'limit'
-        :param str side: 'buy' or 'sell'
-        :param float amount: how much of currency you want to trade in units of base currency
-        :param float [price]: the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
-        :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: an `order structure <https://docs.ccxt.com/#/?id=order-structure>`
-        """
         request: dict = {
             'pair': symbol,
             'type': type,
@@ -332,13 +304,6 @@ class gains(Exchange, ImplicitAPI):
         return self.parse_order(response)
 
     def cancel_order(self, id: str, symbol: Str = None, params={}) -> Order:
-        """
-        cancels an open order
-        :param str id: order id
-        :param str symbol: unified symbol of the market the order was made in
-        :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: An `order structure <https://docs.ccxt.com/#/?id=order-structure>`
-        """
         request: dict = {
             'id': id,
         }
@@ -362,12 +327,6 @@ class gains(Exchange, ImplicitAPI):
         return result
 
     def fetch_balance(self, params={}) -> dict:
-        """
-        query for balance and get the amount of funds available for trading or funds locked in orders
-        :see: TODO add a link to the relevant part of the exchange API documentation
-        :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `balance structure <https://docs.ccxt.com/#/?id=balance-structure>`
-        """
         response = self.privateGetBalance(params)
         return self.parse_balance(response)
 
@@ -438,13 +397,6 @@ class gains(Exchange, ImplicitAPI):
         }
 
     def fetch_ticker(self, symbol: str, params={}) -> Ticker:
-        """
-        fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
-        :see: TODO add a link to the relevant part of the exchange API documentation
-        :param str symbol: unified symbol of the market to fetch the ticker for
-        :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a `ticker structure <https://docs.ccxt.com/#/?id=ticker-structure>`
-        """
         request: dict = {
             'pair': symbol,
         }
@@ -473,13 +425,6 @@ class gains(Exchange, ImplicitAPI):
         return results
 
     def fetch_leverage_tiers(self, symbols: Strings = None, params={}) -> LeverageTiers:
-        """
-        :see: TODO add a link to the relevant part of the exchange API documentation
-        retrieve information on the maximum leverage, and maintenance margin for trades of varying trade sizes
-        :param str[]|None symbols: list of unified market symbols
-        :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: a dictionary of `leverage tiers structures <https://docs.ccxt.com/#/?id=leverage-tiers-structure>`, indexed by market symbols
-        """
         request: dict = {}
         if symbols is not None:
             request['symbols'] = symbols
