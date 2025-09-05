@@ -321,10 +321,11 @@ class gains(Exchange, ImplicitAPI):
             'pair': symbol,
             'type': type,
             'side': side,
+            'price': price,
             'amount': amount,
         }
-        if type != 'market':
-            raise NotSupported(self.id + ' createOrder() supports market orders only')
+        if type not in ('market', 'limit'):
+            raise NotSupported(self.id + ' createOrder() supports market and limit orders only')
         if side != 'buy' and side != 'sell':
             raise NotSupported(self.id + ' createOrder() side must be buy or sell')
         response = self.privatePostOrder(self.extend(request, params))
