@@ -13,4 +13,5 @@ class ImplicitAPI:
     private_get_leverage_tiers = privateGetLeverageTiers = Entry('leverage_tiers', 'private', 'GET', {})
     private_post_order = privatePostOrder = Entry('order', 'private', 'POST', {})
     private_post_leverage = privatePostLeverage = Entry('leverage', 'private', 'POST', {})
+    private_post_positions_close = privatePostPositionsClose = Entry('positions/close', 'private', 'POST', {})
     private_delete_order = privateDeleteOrder = Entry('order', 'private', 'DELETE', {})

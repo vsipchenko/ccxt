@@ -10,6 +10,12 @@ from ccxt.base.types import Bool, Int, LeverageTier, LeverageTiers, Market, Num,
 from typing import List, Any, Optional
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import ArgumentsRequired
+from ccxt.base.errors import AuthenticationError
+from ccxt.base.errors import BadRequest
+from ccxt.base.errors import BadSymbol
+from ccxt.base.errors import InvalidOrder
+from ccxt.base.errors import OrderNotFound
+from ccxt.base.errors import RateLimitExceeded
 from ccxt.base.decimal_to_precision import TICK_SIZE
 
 
@@ -21,7 +27,10 @@ class gains(Exchange, ImplicitAPI):
             'name': 'gains',
             'countries': ['EU'],
             'version': 'v1',
-            'rateLimit': 10,
+            # adapter's global limit is 60 requests/minute/IP (write endpoints: 10/minute)
+            'rateLimit': 1000,
+            # market orders wait for on-chain execution events(1-3s typical, longer under RPC slowness)
+            'timeout': 30000,
             'pro': False,
             'has': {
                 'CORS': None,
@@ -34,11 +43,10 @@ class gains(Exchange, ImplicitAPI):
                 'cancelOrder': True,
                 'cancelOrders': False,
                 'closeAllPositions': False,
-                'closePosition': False,
+                'closePosition': True,
                 'createOrder': True,
                 'editOrder': False,
                 'fetchBalance': True,
-                'fetch_markets': True,
                 'fetchBorrowRateHistories': False,
                 'fetchBorrowRateHistory': False,
                 'fetchClosedOrders': False,
@@ -63,7 +71,7 @@ class gains(Exchange, ImplicitAPI):
                 'fetchOpenInterestHistory': False,
                 'fetchOpenOrders': False,
                 'fetchOrder': True,
-                'fetchOrderBook': True,
+                'fetchOrderBook': False,
                 'fetchOrders': True,
                 'fetchOrderTrades': False,
                 'fetchPosition': False,
@@ -136,10 +144,32 @@ class gains(Exchange, ImplicitAPI):
                     'post': [
                         'order',
                         'leverage',
+                        'positions/close',
                     ],
                     'delete': [
                         'order',
                     ],
+                },
+            },
+            # auth is a single Bearer token(the adapter's API_SECRET_KEY), passed as 'secret'
+            'requiredCredentials': {
+                'apiKey': False,
+                'secret': True,
+            },
+            'exceptions': {
+                'exact': {},
+                'broad': {
+                    'Invalid pair': BadSymbol,
+                    'must be': BadRequest,
+                    'mutually exclusive': BadRequest,
+                    'Missing required': BadRequest,
+                    'no candidate found': OrderNotFound,
+                    'not found': OrderNotFound,
+                    'already processed': InvalidOrder,
+                    'already closed': InvalidOrder,
+                    'already being closed': InvalidOrder,
+                    'not yet supported': NotSupported,
+                    'Too many': RateLimitExceeded,
                 },
             },
             'precisionMode': TICK_SIZE,
@@ -263,7 +293,7 @@ class gains(Exchange, ImplicitAPI):
             'remaining': self.safe_float(order, 'remaining', None),
             'status': self.safe_string(order, 'status', None),
             'fee': fee,
-            'trades': [self.parse_trade(trade_raw)],
+            'trades': [self.parse_trade(trade_raw)] if trade_raw else [],
             'info': order,
         }
 
@@ -278,7 +308,6 @@ class gains(Exchange, ImplicitAPI):
         """
         request: dict = {
             'id': id,
-            'pair': symbol,
         }
         response = self.privateGetOrder(self.extend(request, params))
         return self.parse_order(response)
@@ -315,20 +344,47 @@ class gains(Exchange, ImplicitAPI):
         :param float amount: how much of currency you want to trade in units of base currency
         :param float [price]: the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
         :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param float [params.leverage]: leverage >= 1.1; falls back to the per-pair setLeverage() value, then to the server default
+        :param bool [params.reduceOnly]: True closes the most recent matching open position(market only, amount must exactly match the position)
+        :param float [params.takeProfitPercent]: TP distance from entry in percent; mutually exclusive with takeProfitPrice
+        :param float [params.takeProfitPrice]: absolute TP trigger price(above entry for long, below for short); mutually exclusive with takeProfitPercent
+        :param float [params.stopLossPercent]: SL distance from entry in percent; mutually exclusive with stopLossPrice
+        :param float [params.stopLossPrice]: absolute SL trigger price(below entry for long, above for short); mutually exclusive with stopLossPercent
         :returns dict: an `order structure <https://docs.ccxt.com/#/?id=order-structure>`
         """
         request: dict = {
             'pair': symbol,
             'type': type,
             'side': side,
-            'price': price,
             'amount': amount,
         }
         if type not in ('market', 'limit'):
             raise NotSupported(self.id + ' createOrder() supports market and limit orders only')
         if side != 'buy' and side != 'sell':
             raise NotSupported(self.id + ' createOrder() side must be buy or sell')
+        if type == 'limit':
+            if price is None:
+                raise ArgumentsRequired(self.id + ' createOrder() requires a price argument for limit orders')
+            request['price'] = price
         response = self.privatePostOrder(self.extend(request, params))
+        return self.parse_order(response)
+
+    def close_position(self, symbol: str, side: OrderSide = None, params={}) -> Order:
+        """
+        closes a specific open position by its trade UUID
+        :param str symbol: unified market symbol(informational, the position is selected by id)
+        :param str [side]: not used by gains
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param str params.id: REQUIRED - the trade UUID from fetchPositions()(the position's 'id' field)
+        :returns dict: an `order structure <https://docs.ccxt.com/#/?id=order-structure>` - the close order
+        """
+        id = self.safe_string(params, 'id')
+        if id is None:
+            raise ArgumentsRequired(self.id + ' closePosition() requires params["id"] - the trade UUID from fetchPositions()')
+        request: dict = {
+            'id': id,
+        }
+        response = self.privatePostPositionsClose(self.extend(self.omit(params, 'id'), request))
         return self.parse_order(response)
 
     def cancel_order(self, id: str, symbol: Str = None, params={}) -> Order:
@@ -641,18 +697,25 @@ class gains(Exchange, ImplicitAPI):
             else:
                 body = self.json(query)
                 headers['Content-Type'] = 'application/json'
+        self.check_required_credentials()
+        headers['Authorization'] = 'Bearer ' + self.secret
         url = url + endpoint
         return {'url': url, 'method': method, 'body': body, 'headers': headers}
 
     def handle_errors(self, httpCode: int, reason: str, url: str, method: str, headers: dict, body: str, response, requestHeaders, requestBody):
+        # the adapter returns errors as {"error": "<message>"} with a meaningful HTTP status
         if response is None:
             return None  # fallback to default error handler
-        code = self.safe_string(response, 'code')
-        message = self.safe_string(response, 'msg')
-        if code is not None and code != '0':
-            feedback = self.id + ' ' + body
-            self.throw_exactly_matched_exception(self.exceptions['exact'], message, feedback)
-            self.throw_exactly_matched_exception(self.exceptions['exact'], code, feedback)
-            self.throw_broadly_matched_exception(self.exceptions['broad'], message, feedback)
-            raise ExchangeError(feedback)  # unknown message
-        return None
+        message = self.safe_string(response, 'error')
+        if message is None:
+            return None
+        feedback = self.id + ' ' + message
+        if httpCode == 401:
+            raise AuthenticationError(feedback)
+        if httpCode == 429:
+            raise RateLimitExceeded(feedback)
+        self.throw_exactly_matched_exception(self.exceptions['exact'], message, feedback)
+        self.throw_broadly_matched_exception(self.exceptions['broad'], message, feedback)
+        if httpCode == 404:
+            raise OrderNotFound(feedback)
+        raise ExchangeError(feedback)  # unknown message
